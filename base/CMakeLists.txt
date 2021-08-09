@@ -1,5 +1,11 @@
 # set this will supress some warnings
 set(BUILDING_SDK "yes" CACHE INTERNAL "")
+cmake_minimum_required(VERSION 3.0)
+
+if (NOT $ENV{KENDRYTE_TOOLCHAIN})
+    set(TOOLCHAIN $ENV{KENDRYTE_TOOLCHAIN})
+endif ()
+
 get_filename_component(SDK_ROOT
                        "${CMAKE_CURRENT_LIST_DIR}/../sdk"
                        ABSOLUTE)
@@ -17,7 +23,6 @@ if (NOT PROJ)
 else()
     message("PROJ = ${PROJ}")
 endif ()
-cmake_minimum_required(VERSION 3.0)
 include(${SDK_ROOT}/cmake/common.cmake)
 project(${PROJ} C CXX ASM)
 

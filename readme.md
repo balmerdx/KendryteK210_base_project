@@ -1,4 +1,4 @@
-#Base project for Kendtyte K210 with addons
+# Base project for Kendtyte K210 with addons
 
 Это темплейтный проект, в котором буду собирать разнообразные исходники для работы с Kendryte K210.
 Одна из основных идей разбиение проекта на 2 части. В одной будут драйвера и работа с железом, в другой - пользовательская логика.
@@ -8,13 +8,15 @@
 
 
 Компиляция base проекта
+'''
+задать переменную окружения KENDRYTE_TOOLCHAIN 
 cd base
 mkdir build
 cd build
-cmake .. -DPROJ=base -DTOOLCHAIN=/home/balmer/radio/kendryte-toolchain/bin -DCMAKE_BUILD_TYPE=Release
+cmake .. -DPROJ=base
+'''
 
-
-#Сторонние проекты
+# Сторонние проекты
 Оригинальные пути сторонних проектов.
 
 https://github.com/kendryte/kendryte-standalone-sdk
