@@ -1,9 +1,11 @@
 {
     "configurations": [
         {
-            "name": "KendryteK210",
+            "name": "Linux",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/../sdk/**",
+                "${workspaceFolder}/../drivers/**"
             ],
             "defines": [],
             "compilerPath": "${env:KENDRYTE_TOOLCHAIN}/riscv64-unknown-elf-gcc",
