@@ -17,6 +17,8 @@
 #include "fpioa.h"
 #include "gpio.h"
 #include "sysctl.h"
+#include "flash/flash.h"
+#include "main.h"
 
 //12 - blue
 //13 - green

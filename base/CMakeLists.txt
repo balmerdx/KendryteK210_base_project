@@ -26,18 +26,23 @@ endif ()
 include(${SDK_ROOT}/cmake/common.cmake)
 project(${PROJ} C CXX ASM)
 
-add_compile_flags(C -std=gnu11 -save-temps=obj)
+#add_compile_flags(C -std=gnu11 -save-temps=obj)
+add_compile_flags(C -std=gnu11)
 # config self use headers
 include(${SDK_ROOT}/cmake/macros.internal.cmake)
 header_directories(${SDK_ROOT}/lib)
-header_directories(src/${PROJ})
-header_directories(kendryte-standalone-demo/${PROJ})
 # build library first
 add_subdirectory(${SDK_ROOT}/lib lib)
 
 # compile project
-message("LD_LINK_FILE=" ${LD_LINK_FILE})
-
+#message("LD_LINK_FILE=" ${LD_LINK_FILE})
 add_source_files(src/*.c src/*.s src/*.S src/*.cpp)
+
+get_filename_component(DRIVERS_ABS_PATH
+                       "${CMAKE_CURRENT_LIST_DIR}/../drivers"
+                       ABSOLUTE)
+include_directories(${DRIVERS_ABS_PATH})
+
+add_source_files(../drivers/flash/*.c)
 include(${SDK_ROOT}/cmake/executable.cmake)
 

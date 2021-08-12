@@ -17,6 +17,7 @@ cmake .. -DPROJ=base
 '''
 
 # Сторонние проекты
-Оригинальные пути сторонних проектов.
+Оригинальные пути сторонних проектов, исходники которых есть в этом репозитории.
 
 https://github.com/kendryte/kendryte-standalone-sdk
+https://github.com/loboris/ktool

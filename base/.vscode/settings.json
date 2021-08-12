@@ -3,7 +3,8 @@
     "files.associations": {
         "stdio.h": "c",
         "gpio.h": "c",
-        "fpioa.h": "c"
+        "fpioa.h": "c",
+        "flash.h": "c"
     },
 
     "PROJECT_NAME" : "base"
