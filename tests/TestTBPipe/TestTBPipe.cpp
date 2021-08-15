@@ -2,6 +2,7 @@
 #include <stdlib.h> 
 #include <stdarg.h>
 #include <memory.h>
+#include <assert.h>
 #include <typeinfo>
 #include <vector>
 #include <string>
@@ -357,11 +358,20 @@ void CheckMessage(const TBMessage& orig, const TBMessage& received)
     }
 }
 
-void CheckMessages(TBParse& parse, FillBuffer& fill)
+void CheckMessages(TBParse& parse, FillBuffer& fill, size_t start=0, size_t count=0)
 {
     const std::vector<TBMessage>& orig_messages = fill.Messages();
+    if(count==0)
+    {
+        if(orig_messages.size()<start)
+            count = 0;
+        else
+            count = orig_messages.size()-start;
+
+    }
+
     TBMessage message;
-    for(size_t i=0; i<orig_messages.size(); i++)
+    for(size_t i=start; i<start+count; i++)
     {
         message = parse.NextMessage();
         CheckMessage(orig_messages[i], message);
@@ -407,7 +417,6 @@ void TestTBParse()
         printf(".");
         str.append(1, '0'+i%40);
         fill.Clear();
-        //Добавить тут тест на разные длины сообщений (т.к. при длинне сообщения 10 и 13 были ошибки)
         fill.AddStringAsBinary(str.c_str());
         parse.Append(fill.Data(), fill.DataSize());
         CheckMessages(parse, fill);
@@ -434,7 +443,53 @@ void TestTBParse()
     CheckMessages(parse, fill);
     printf("--passed\n");
 
-    //Добавить тут тест частично помещающиеся в буфер сообщения.
+    for(int is_binary2=0; is_binary2<2; is_binary2++)
+    {
+        if(is_binary2)
+            printf("Binary cross boundary ");
+        else
+            printf("Text cross boundary ");
+        for(int is_binary=0; is_binary<2; is_binary++)
+        {
+            printf(".");
+            std::vector<uint8_t> message;
+            for(int sz=buffer_size-30; sz<buffer_size-4; sz++)
+            {
+                fill.Clear();
+                if(is_binary)
+                {
+                    message.resize(sz);
+                    for(int i=0; i<sz; i++)
+                        message[i] = rand();
+                    fill.AddBinary(message.data(), message.size());
+                } else
+                {
+                    message.resize(sz+1);
+                    for(int i=0; i<sz; i++)
+                        message[i] = '0'+rand()%40;
+                    message[sz] = 0;
+                    fill.Print("%s", (char*)message.data());
+                }
+
+                if(is_binary2)
+                    fill.AddStringAsBinary("Binary message cross boundary");
+                else
+                    fill.Print("Binary message cross boundary");
+
+                if(fill.DataSize()>buffer_size)
+                {
+                    parse.Append(fill.Data(), buffer_size);
+                    CheckMessages(parse, fill, 0, 1);
+                    parse.Append(fill.Data()+buffer_size, fill.DataSize()-buffer_size);
+                    CheckMessages(parse, fill, 1);
+                } else
+                {
+                    CheckMessages(parse, fill);
+                }
+            }
+        }
+        printf("--passed\n");
+    }
 }
 
 

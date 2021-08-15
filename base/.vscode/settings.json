@@ -6,7 +6,8 @@
         "fpioa.h": "c",
         "flash.h": "c",
         "sysctl.h": "c",
-        "cstring": "cpp"
+        "cstring": "cpp",
+        "algorithm": "cpp"
     },
 
     "PROJECT_NAME": "base",

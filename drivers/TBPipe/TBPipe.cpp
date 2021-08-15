@@ -80,23 +80,26 @@ TBMessage TBParse::NextMessage()
 {
     TBMessage message = {};
     uint32_t message_start = buffer_pos;
-    //Если находим \r или \n - это конец строки.
+    if(bin_message_size)
+    {
+        if(buffer_pos + bin_message_size <= buffer_amount)
+        {
+            message.is_text = false;
+            message.size = bin_message_size;
+            message.data = buffer + buffer_pos;    
+            buffer_pos += bin_message_size;
+            bin_message_size = 0;
+            return message;
+        }
+    } else
     while(buffer_pos < buffer_amount)
     {
         uint8_t c = buffer[buffer_pos++];
-        BinPrefixParser::Result result = BinPrefixParser::Result::NotMatched;
-        if(bin_message_size)
-        {
-            result = BinPrefixParser::Result::PrefixCompleted;
-        } else
-        {
-            result = parser->Parse(c, buffer_pos==message_start);
-            if(result==BinPrefixParser::Result::PrefixCompleted)
-                bin_message_size = parser->PacketSize();
-        }
-
+        BinPrefixParser::Result result;
+        result = parser->Parse(c, buffer_pos-1==message_start);
         if(result==BinPrefixParser::Result::PrefixCompleted)
         {
+            bin_message_size = parser->PacketSize();
             if(buffer_pos + bin_message_size <= buffer_amount)
             {
                 message.is_text = false;
@@ -108,6 +111,7 @@ TBMessage TBParse::NextMessage()
             } else
             {
                 //Сообщения ещё нет в буфере, переходим в режим ожидания.
+                message_start = buffer_pos;
                 break;
             }
         } else
