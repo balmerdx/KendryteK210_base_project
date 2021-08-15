@@ -1,0 +1,8 @@
+{
+    "git.enabled": false,
+    "files.associations": {
+        "typeinfo": "cpp",
+        "vector": "cpp",
+        "functional": "cpp"
+    }
+}

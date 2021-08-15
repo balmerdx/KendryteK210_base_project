@@ -44,5 +44,6 @@ get_filename_component(DRIVERS_ABS_PATH
 include_directories(${DRIVERS_ABS_PATH})
 
 add_source_files(../drivers/flash/*.c)
+add_source_files(../drivers/TBPipe/*.cpp)
 include(${SDK_ROOT}/cmake/executable.cmake)
 
