@@ -66,6 +66,11 @@ TBParse::~TBParse()
     free(buffer);
 }
 
+void TBParse::SetParser(BinPrefixParser* p)
+{
+    parser = p;
+}
+
 void TBParse::Append(uint8_t* data, uint32_t size)
 {
     uint32_t size_to_copy = size;
@@ -146,7 +151,6 @@ TBMessage TBParse::NextMessage()
 
 StandartPrefixParser::StandartPrefixParser()
 {
-
 }
 
 BinPrefixParser::Result StandartPrefixParser::Parse(uint8_t data, bool is_first)

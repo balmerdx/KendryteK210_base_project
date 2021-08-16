@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h> 
-#include <stdarg.h>
 #include <memory.h>
 #include <assert.h>
 #include <typeinfo>
 #include <vector>
 #include <string>
 #include "TBPipe.h"
+#include "FillBuffer.h"
 
 struct PrefixFeedResult
 {
@@ -212,124 +212,7 @@ void TestTBPipe()
     printf("TestTBPipe buffer overflow --passed\n");
 }
 
-class FillBuffer
-{
-public:
-    FillBuffer(uint32_t buffer_size);
-    ~FillBuffer();
 
-    void SetEndingCRLF(bool ending_cr_lf) { this->ending_cr_lf = ending_cr_lf; }
-    void Print(const char *__restrict fmt, ...) __attribute__((format (printf, 2, 3)));
-    void AddBinary(const uint8_t* data, uint32_t size);
-    void AddStringAsBinary(const char* data);
-
-    void Clear();
-
-    const std::vector<TBMessage>& Messages() { return messages; }
-
-    uint8_t* Data() { return buffer;}
-    uint32_t DataSize() { return buffer_pos; }
-protected:
-    void AddData(const uint8_t* data, uint32_t size);
-    void AddMessage(const uint8_t* data, uint32_t size, bool text);
-
-    uint8_t* buffer;
-    uint32_t buffer_size;
-    uint32_t buffer_pos = 0;
-
-    uint8_t* temp_buffer;
-    uint32_t temp_buffer_size;
-    bool ending_cr_lf = true;
-
-    std::vector<TBMessage> messages;
-};
-
-FillBuffer::FillBuffer(uint32_t buffer_size)
-    : buffer_size(buffer_size)
-    , temp_buffer_size(buffer_size)
-{
-    buffer = new uint8_t[buffer_size];
-    temp_buffer = new uint8_t[temp_buffer_size];
-}
-
-FillBuffer::~FillBuffer()
-{
-    Clear();
-    delete[] buffer;
-    delete[] temp_buffer;
-
-}
-
-void FillBuffer::Clear()
-{
-    for(TBMessage& m : messages)
-        delete[] m.data;
-    messages.clear();
-    buffer_pos = 0;
-}
-
-void FillBuffer::AddData(const uint8_t* data, uint32_t size)
-{
-    if(buffer_pos>=buffer_size)
-        return;
-    uint32_t remain_size = buffer_size - buffer_pos;
-    size = std::min(remain_size, size);
-    memcpy(buffer+buffer_pos, data, size);
-    buffer_pos += size;
-}
-
-void FillBuffer::Print(const char *__restrict fmt, ...)
-{
-    va_list arg;
-    va_start(arg, fmt);
-    int ret = vsnprintf((char*)(temp_buffer), temp_buffer_size, fmt, arg);
-    if(ret>0)
-    {
-        AddMessage(temp_buffer, ret, true);
-        uint32_t rest_size = temp_buffer_size - ret;
-        if(ending_cr_lf)
-            ret += snprintf((char*)(temp_buffer+ret), rest_size, "\r\n");
-        else
-            ret += snprintf((char*)(temp_buffer+ret), rest_size, "\n");
-
-        AddData(temp_buffer, ret);
-    }
-    va_end(arg);
-}
-
-void FillBuffer::AddBinary(const uint8_t* data, uint32_t size)
-{
-    uint16_t p16[2];
-    p16[0] = 0x0100;
-    p16[1] = size;
-    AddData((uint8_t*)p16, 4);
-    AddData(data, size);
-    AddMessage(data, size, false);
-}
-
-void FillBuffer::AddStringAsBinary(const char* data)
-{
-    AddBinary((const uint8_t*) data, strlen(data)+1);
-}
-
-void FillBuffer::AddMessage(const uint8_t* data, uint32_t size, bool text)
-{
-    TBMessage message;
-    message.is_text = text;
-    message.size = size;
-    if(text)
-    {
-        message.data = new uint8_t[size+1];
-        message.data[size] = 0;
-    }
-    else
-    {
-        message.data = new uint8_t[size+1];
-    }
-
-    memcpy(message.data, data, size);
-    messages.push_back(message);
-}
 
 void CheckMessage(const TBMessage& orig, const TBMessage& received)
 {
@@ -367,7 +250,6 @@ void CheckMessages(TBParse& parse, FillBuffer& fill, size_t start=0, size_t coun
             count = 0;
         else
             count = orig_messages.size()-start;
-
     }
 
     TBMessage message;
@@ -383,16 +265,40 @@ void CheckMessages(TBParse& parse, FillBuffer& fill, size_t start=0, size_t coun
         printf("Error. Extra message!");
         exit(1);
     }
-
 }
 
-void TestTBParse()
+int CheckAvailableMessages(TBParse& parse, FillBuffer& fill)
 {
-    printf("TestTBParse started\n");
+    const std::vector<TBMessage>& orig_messages = fill.Messages();
+    int count = 0;
+    while(1)
+    {
+        TBMessage message = parse.NextMessage();
+        if(message.data == nullptr)
+            break;
+        CheckMessage(orig_messages[count], message);
+        count++;
+    }
+
+    return count;
+}
+
+void TestTBParse(bool use_esp8266)
+{
+    if(use_esp8266)
+        printf("TestTBParse Esp8266 started\n");
+    else
+        printf("TestTBParse standart started\n");
+
+    Esp8266PrefixParser esp8266_parser;
 
     const uint32_t buffer_size = 100;
     TBParse parse(buffer_size);
+    if(use_esp8266)
+        parse.SetParser(&esp8266_parser);
+
     FillBuffer fill(buffer_size*5);
+    fill.SetEsp8266BinaryFormat(use_esp8266);
     TBMessage message;
 
     printf("Single text message ");
@@ -453,7 +359,8 @@ void TestTBParse()
         {
             printf(".");
             std::vector<uint8_t> message;
-            for(int sz=buffer_size-30; sz<buffer_size-4; sz++)
+            int prefix_size = use_esp8266?10:4;
+            for(int sz=buffer_size-30; sz<buffer_size-prefix_size; sz++)
             {
                 fill.Clear();
                 if(is_binary)
@@ -479,9 +386,10 @@ void TestTBParse()
                 if(fill.DataSize()>buffer_size)
                 {
                     parse.Append(fill.Data(), buffer_size);
-                    CheckMessages(parse, fill, 0, 1);
+                    //CheckMessages(parse, fill, 0, 1);
+                    int count_checked = CheckAvailableMessages(parse, fill);
                     parse.Append(fill.Data()+buffer_size, fill.DataSize()-buffer_size);
-                    CheckMessages(parse, fill, 1);
+                    CheckMessages(parse, fill, count_checked);
                 } else
                 {
                     CheckMessages(parse, fill);
@@ -492,12 +400,12 @@ void TestTBParse()
     }
 }
 
-
 int main()
 {
     TestEsp8266PrefixParser();
     TestStandartPrefixParser();
     TestTBPipe();
-    TestTBParse();
+    TestTBParse(false);
+    TestTBParse(true);
     return 0;
 }

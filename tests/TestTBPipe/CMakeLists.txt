@@ -14,6 +14,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../emulation)
 
 set(SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/TestTBPipe.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/FillBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../drivers/TBPipe/TBPipe.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../emulation/sysctl.cpp
   )

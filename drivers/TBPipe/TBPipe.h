@@ -84,6 +84,8 @@ public:
     //В случае бинарных данных - это очередной пакет размером size
     //В случае текстовых данных - в конце, вместо \r\n будет символ 0
     TBMessage NextMessage();
+
+    void SetParser(BinPrefixParser* p);
 protected:
     uint8_t* buffer;
     uint32_t buffer_size;
