@@ -17,6 +17,7 @@ set(SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/FillBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../drivers/TBPipe/TBPipe.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../emulation/sysctl.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../emulation/sleep.cpp
   )
 
 add_executable(TestTBPipe ${SOURCE})

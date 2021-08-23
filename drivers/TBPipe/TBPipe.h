@@ -79,6 +79,7 @@ public:
     TBParse(uint32_t buffer_size);
     ~TBParse();
     //Добавляем новые данные, желательно добавлять сразу большими кусками.
+    //Если timeout_ms!=0 то очищаются старые данные и BinPrefixParser приводится в начальное состояние.
     void Append(uint8_t* data, uint32_t size);
 
     //В случае бинарных данных - это очередной пакет размером size
@@ -86,12 +87,17 @@ public:
     TBMessage NextMessage();
 
     void SetParser(BinPrefixParser* p);
+
+    void SetTimeout(uint32_t timeout_ms);
+    uint32_t Timeout() const { return timeout_ms; }
 protected:
     uint8_t* buffer;
     uint32_t buffer_size;
     uint32_t buffer_pos = 0;
     uint32_t buffer_amount = 0;
     uint32_t bin_message_size = 0;
+    uint32_t timeout_ms = 0;
+    uint64_t last_append_time = 0;
 
     BinPrefixParser* parser = nullptr;
 };

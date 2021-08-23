@@ -7,6 +7,7 @@
 #include <string>
 #include "TBPipe.h"
 #include "FillBuffer.h"
+#include "sleep.h"
 
 struct PrefixFeedResult
 {
@@ -400,6 +401,58 @@ void TestTBParse(bool use_esp8266)
     }
 }
 
+void TestTBPipeTimeout()
+{
+    //Тестируем так.
+    //Добавляем два сообщения. 
+    //Копируем так, чтобы скопировалось полтора сообщения.
+    const uint32_t buffer_size = 100;
+    TBParse parse(buffer_size);
+    FillBuffer fill(buffer_size*5);
+
+    parse.SetTimeout(100);
+
+    printf("TestTBPipeTimeout ");
+
+    {
+        fill.Print("0123456789");
+        fill.Print("Second message");
+        int offset = 14;
+
+        parse.Append(fill.Data(), offset);
+        CheckMessages(parse, fill, 0, 1);
+        parse.Append(fill.Data()+offset, fill.DataSize()-offset);
+        CheckMessages(parse, fill, 1, 1);
+    }
+
+    {
+        fill.Print("0123456789");
+        fill.Print("Second message");
+        int offset = 14;
+
+        parse.Append(fill.Data(), offset);
+        CheckMessages(parse, fill, 0, 1);
+        msleep(parse.Timeout());
+        parse.Append(fill.Data()+offset, fill.DataSize()-offset);
+
+        TBMessage m = parse.NextMessage();
+        if(!m.is_text)
+        {
+            printf("Test timeout if(!m.is_text)\n");
+            exit(1);
+        }
+
+        if(strcmp((const char*)m.data,"cond message")!=0)
+        {
+            printf("Test timeout strcmp((const char*)m.data,\"cond message\")!=0\n");
+            exit(1);
+        }
+        
+    }
+
+    printf("--passed\n");
+}
+
 int main()
 {
     TestEsp8266PrefixParser();
@@ -407,5 +460,6 @@ int main()
     TestTBPipe();
     TestTBParse(false);
     TestTBParse(true);
+    TestTBPipeTimeout();
     return 0;
 }

@@ -71,8 +71,22 @@ void TBParse::SetParser(BinPrefixParser* p)
     parser = p;
 }
 
+void TBParse::SetTimeout(uint32_t timeout_ms)
+{
+    this->timeout_ms = timeout_ms;
+}
+
 void TBParse::Append(uint8_t* data, uint32_t size)
 {
+    uint64_t cur_time = sysctl_get_time_us();
+    if(timeout_ms!=0 && cur_time > last_append_time + timeout_ms)
+    {
+        //Очищаем буфер по timeout
+        buffer_amount = 0;
+    }
+
+    last_append_time = cur_time;
+
     uint32_t size_to_copy = size;
     if(buffer_amount + size > buffer_size)
         size_to_copy = buffer_size - buffer_amount;
