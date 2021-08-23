@@ -21,12 +21,28 @@
 #include "flash/flash.h"
 #include "sleep.h"
 #include "main.h"
+#include "uart.h"
+#include "TBPipe/TBPipe.h"
 
 //12 - blue
 //13 - green
 //14 - red
 #define PIN_LED 14
 #define GPIO_LED 3
+
+#define DEBUG_UART_NUM    UART_DEVICE_3
+
+static int KeyboardIrqCallback(void *ctx)
+{
+    TBPipe* pipe = (TBPipe*)ctx;
+    char c;
+    while(uart_receive_data(DEBUG_UART_NUM, &c, 1))
+    {
+        pipe->AppendByte(c);
+    }
+
+    return 0;
+}
 
 void OnLineReceived(const char* str)
 {
@@ -66,10 +82,15 @@ void ReceiveChars()
     last_time = sysctl_get_time_us();
 }
 
-extern "C"
 int main(void) 
 {
+    StandartPrefixParser standart_parser;
+    TBPipe keyboard_pipe(256);
+    TBParse keyboard_parse(256, &standart_parser);
+
     fpioa_set_function(PIN_LED, FUNC_GPIO3);
+
+    uart_irq_register(DEBUG_UART_NUM, UART_RECEIVE, KeyboardIrqCallback, &keyboard_pipe, 1);
 
     gpio_init();
     gpio_set_drive_mode(GPIO_LED, GPIO_DM_OUTPUT);
@@ -80,6 +101,43 @@ int main(void)
 
     while(1)
     {
+        msleep(1);
+        gpio_pin_value_t new_led_on = ((sysctl_get_time_us()/1000000)%2)?GPIO_PV_HIGH:GPIO_PV_LOW;
+        if(led_on!=new_led_on)
+        {
+            led_on = new_led_on;
+            gpio_set_pin(GPIO_LED, led_on);
+            seconds++;
+        }
+
+        {
+            volatile uint8_t* data;
+            volatile uint32_t size;
+            keyboard_pipe.GetBuffer(data, size);
+            if(size!=0)
+            {
+                keyboard_parse.Append((uint8_t*)data, size);
+            }
+        }
+
+        
+        while(1)
+        {
+            TBMessage message = keyboard_parse.NextMessage();
+            if(message.size==0)
+                break;
+            if(message.is_text)
+            {
+                printf("text=%s\n", (const char*)message.data);
+            } else
+            {
+                printf("bin size=%u\n", message.size);
+            }
+        }
+    }
+
+    while(1)
+    {
         ReceiveChars();
 
         gpio_pin_value_t new_led_on = ((sysctl_get_time_us()/1000000)%2)?GPIO_PV_HIGH:GPIO_PV_LOW;
@@ -87,6 +145,7 @@ int main(void)
         {
             led_on = new_led_on;
             gpio_set_pin(GPIO_LED, led_on);
+            /*
             if(seconds%3==0)
             {
                 printf("seconds=%i ", seconds);
@@ -94,10 +153,8 @@ int main(void)
             }
             else
                 printf("seconds=%i\n", seconds);
+            */
             seconds++;
         }
     }
-
-
-    //gpio_set_pin(GPIO_LED, value = !value);
 }

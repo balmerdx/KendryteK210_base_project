@@ -42,7 +42,7 @@ class BalmerTerminal:
         if line == 'quit\n':
             quit()
         else:
-            print('User input: {}'.format(line))
+            #print('User input: {}'.format(line))
             self.ser.write(line.encode('utf-8'))
 
     def from_uart(self, ser):
@@ -57,7 +57,7 @@ class BalmerTerminal:
             return False
 
         self.m_selector = selectors.DefaultSelector()
-        self.m_sel;ector.register(self.ser, selectors.EVENT_READ, lambda arg1: self.from_uart(arg1))
+        self.m_selector.register(self.ser, selectors.EVENT_READ, lambda arg1: self.from_uart(arg1))
         self.m_selector.register(sys.stdin, selectors.EVENT_READ, lambda arg1: self.from_keyboard(arg1))
         
         while True:

@@ -50,17 +50,19 @@ public:
     //!!! можно вызывать только из нулевого ядра!
     //Из того-же, где происходит прерывание.
     //
-    void GetBuffer(uint8_t*& data, uint32_t& size, bool* overflow = nullptr);
+    void GetBuffer(volatile uint8_t*& data, volatile uint32_t& size, bool* overflow = nullptr);
+
+    int BufferSize() const { return buffer_size; }
 protected:
     int buffer_size;
     uint8_t* buffer;
-    uint8_t* irq_buffer;
-    uint8_t* user_buffer;
+    volatile uint8_t* irq_buffer;
+    volatile uint8_t* user_buffer;
 
-    uint32_t irq_buffer_pos = 0;
-    uint32_t user_buffer_pos = 0;
+    volatile uint32_t irq_buffer_pos = 0;
+    volatile uint32_t user_buffer_pos = 0;
 
-    bool overflow = false;
+    volatile bool overflow = false;
 };
 
 struct TBMessage
@@ -76,7 +78,7 @@ struct TBMessage
 class TBParse
 {
 public:
-    TBParse(uint32_t buffer_size);
+    TBParse(uint32_t buffer_size, BinPrefixParser* parser);
     ~TBParse();
     //Добавляем новые данные, желательно добавлять сразу большими кусками.
     //Если timeout_ms!=0 то очищаются старые данные и BinPrefixParser приводится в начальное состояние.
