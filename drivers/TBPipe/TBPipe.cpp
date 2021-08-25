@@ -3,8 +3,6 @@
 #include <memory.h>
 #include "sysctl.h"
 
-//static StandartPrefixParser standart_parser;
-
 TBPipe::TBPipe(int buffer_size)
     : buffer_size(buffer_size)
 {
@@ -33,11 +31,11 @@ void TBPipe::AppendByte(uint8_t byte)
     }
 }
 
-void TBPipe::GetBuffer(volatile uint8_t*& data, volatile uint32_t& size, bool* overflow)
+void TBPipe::GetBuffer(uint8_t*& data, uint32_t& size, bool* overflow)
 {
     sysctl_disable_irq();
 
-    volatile uint8_t* p_tmp = irq_buffer;
+    uint8_t* p_tmp = irq_buffer;
     irq_buffer = user_buffer;
     user_buffer = p_tmp;
 
@@ -78,6 +76,8 @@ void TBParse::SetTimeout(uint32_t timeout_ms)
 
 void TBParse::Append(uint8_t* data, uint32_t size)
 {
+    if(size==0)
+        return;
     uint64_t cur_time = sysctl_get_time_us();
     if(timeout_ms!=0 && cur_time > last_append_time + timeout_ms)
     {

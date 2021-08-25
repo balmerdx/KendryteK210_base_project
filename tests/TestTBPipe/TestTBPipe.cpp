@@ -292,11 +292,12 @@ void TestTBParse(bool use_esp8266)
         printf("TestTBParse standart started\n");
 
     Esp8266PrefixParser esp8266_parser;
+    StandartPrefixParser standart_parser;
 
     const uint32_t buffer_size = 100;
-    TBParse parse(buffer_size);
-    if(use_esp8266)
-        parse.SetParser(&esp8266_parser);
+    TBParse parse(buffer_size, use_esp8266?
+    static_cast<BinPrefixParser*>(&esp8266_parser):
+    static_cast<BinPrefixParser*>(&standart_parser));
 
     FillBuffer fill(buffer_size*5);
     fill.SetEsp8266BinaryFormat(use_esp8266);
@@ -407,7 +408,8 @@ void TestTBPipeTimeout()
     //Добавляем два сообщения. 
     //Копируем так, чтобы скопировалось полтора сообщения.
     const uint32_t buffer_size = 100;
-    TBParse parse(buffer_size);
+    StandartPrefixParser standart_parser;
+    TBParse parse(buffer_size, &standart_parser);
     FillBuffer fill(buffer_size*5);
 
     parse.SetTimeout(100);
