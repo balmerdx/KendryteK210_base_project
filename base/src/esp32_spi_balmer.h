@@ -73,9 +73,14 @@ typedef struct __packed
 const esp32_spi_aps_list_t* esp32_spi_scan_networks();
 
 bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_times);
-uint16_t esp32_spi_ping(const char *dest, uint8_t dest_type, uint8_t ttl);
-void esp32_spi_pretty_ip(const uint8_t *ip, char *str_ip);
-int8_t esp32_spi_get_host_by_name(const char *hostname, uint8_t *ip);
+
+// Ping a destination IP address or hostname, with a max time-to-live
+//      (ttl). Returns a millisecond timing value
+uint16_t esp32_spi_ping_ip(uint8_t ip[4], uint8_t ttl);
+uint16_t esp32_spi_ping(const char *dest, uint8_t ttl);
+
+void esp32_spi_pretty_ip(const uint8_t ip[4], char *str_ip);
+bool esp32_spi_get_host_by_name(const char *hostname, uint8_t ip[4]);
 
 //use esp32_spi_connect_AP
 bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase);

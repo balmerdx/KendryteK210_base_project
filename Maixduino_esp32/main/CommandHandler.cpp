@@ -44,8 +44,6 @@ bool setCert = 0;
 char PK_BUFF[1700];
 bool setPSK = 0;
 
-/*IPAddress*/uint32_t resolvedHostname;
-
 #define MAX_SOCKETS CONFIG_LWIP_MAX_SOCKETS
 uint8_t socketTypes[MAX_SOCKETS];
 WiFiClient tcpClients[MAX_SOCKETS];
@@ -709,31 +707,12 @@ int getIdxEnct(const uint8_t command[], uint8_t response[])
 
 int reqHostByName(const uint8_t command[], uint8_t response[])
 {
-  char host[255 + 1];
-
-  memset(host, 0x00, sizeof(host));
-  memcpy(host, &command[4], command[3]);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  resolvedHostname = /*IPAddress(255, 255, 255, 255)*/0xffffffff;
-  if (WiFi.hostByName(host, resolvedHostname)) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
-
-  return 6;
-}
-
-int getHostByName(const uint8_t command[], uint8_t response[])
-{
-  response[2] = 1; // number of parameters
-  response[3] = 4; // parameter 1 length
-  memcpy(&response[4], &resolvedHostname, sizeof(resolvedHostname));
-
-  return 9;
+  uint32_t* resp32 = (uint32_t*)response;
+  const char* host = (const char*)(command+1);
+  uint32_t resolvedHostname = /*IPAddress(255, 255, 255, 255)*/0xffffffff;
+  resp32[0] = WiFi.hostByName(host, resolvedHostname)?1:0;
+  resp32[1] = resolvedHostname;
+  return CESP_RESP_REQ_HOST_BY_NAME;
 }
 
 int getFwVersion(const uint8_t command[], uint8_t response[])
@@ -905,16 +884,16 @@ int ping(const uint8_t command[], uint8_t response[])
   uint8_t ttl;
   int16_t result;
 
+  ttl = command[1];
   memcpy(&ip, &command[4], sizeof(ip));
-  ttl = command[9];
 
   result = WiFi.ping(ip, ttl);
 
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(result); // parameter 1 length
-  memcpy(&response[4], &result, sizeof(result));
+  response[0] = CESP_PING;
+  response[1] = 0;
+  memcpy(&response[2], &result, sizeof(result));
 
-  return 7;
+  return CESP_RESP_PING;
 }
 
 int getSocket(const uint8_t command[], uint8_t response[])
@@ -1121,7 +1100,7 @@ const CommandHandlerType commandHandlers[] =
 
   // 0x30 -> 0x3f
   disconnect, NULL, getIdxRSSI, getIdxEnct,
-  reqHostByName, getHostByName, NULL, getFwVersion,
+  reqHostByName, NULL, NULL, getFwVersion,
   NULL, sendUDPdata, getRemoteData, getTime,
   getIdxBSSID, getIdxChannel, ping, getSocket,
 

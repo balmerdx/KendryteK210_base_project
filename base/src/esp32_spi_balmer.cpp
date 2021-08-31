@@ -310,18 +310,47 @@ void esp32_spi_reset()
 }
 
 //Converts a bytearray IP address to a dotted-quad string for printing
-void esp32_spi_pretty_ip(const uint8_t *ip, char *str_ip)
+void esp32_spi_pretty_ip(const uint8_t ip[4], char *str_ip)
 {
     sprintf(str_ip, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
     return;
 }
 
-uint16_t esp32_spi_ping(const uint8_t *dest, uint8_t dest_type, uint8_t ttl)
+bool esp32_spi_get_host_by_name(const char *hostname, uint8_t ip[4])
 {
+    size_t len = 0;
+    char* cbuf = (char*)tx_buffer;
+    tx_buffer[len++] = CESP_REQ_HOST_BY_NAME;
+    strncpy_s(cbuf+len, hostname, BUFFER_SIZE-len);
+    len += strlen(cbuf+len)+1;
 
+    if(!esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_REQ_HOST_BY_NAME))
+        return false;
+
+    memcpy(ip, rx_buffer+4, 4);
+    return rx_buffer[0]?true:false;
 }
 
-int8_t esp32_spi_get_host_by_name(const uint8_t *hostname, uint8_t *ip)
+uint16_t esp32_spi_ping_ip(uint8_t ip[4], uint8_t ttl)
 {
+    tx_buffer[0] = CESP_PING;
+    tx_buffer[1] = ttl;
+    tx_buffer[2] = 0;
+    tx_buffer[3] = 0;
+    memcpy(tx_buffer+4, ip, 4);
 
+    if(!esp32_transfer(tx_buffer, 8, rx_buffer, CESP_RESP_PING))
+        return 0xFFFF;
+
+    uint16_t result;
+    memcpy(&result, rx_buffer+2, sizeof(result));
+    return result;
+}
+
+uint16_t esp32_spi_ping(const char *dest, uint8_t ttl)
+{
+    uint8_t ip[4];
+    if(!esp32_spi_get_host_by_name(dest, ip))
+        return 0xFFFF;
+    return esp32_spi_ping_ip(ip, ttl);
 }

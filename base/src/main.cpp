@@ -7,10 +7,7 @@
 #include <spi.h>
 
 #include "esp32_spi_balmer.h"
-
-//#define SSID "Balmer_IOT"
-#define SSID "auto"
-#define PASS "GHSTMeHQ"
+#include "wifi_passw.h"
 
 const size_t buffer_size = 8;
 uint8_t send_buffer[buffer_size];
@@ -48,14 +45,23 @@ static bool connect_AP(const char* ssid, const char* pass)
 
 static void test_connection()
 {
-    uint16_t time = esp32_spi_ping("sipeed.com", 1, 100);
-    printf("time: %dms\r\n", time);
-    
     uint8_t ip[4];
     esp32_spi_get_host_by_name("sipeed.com", ip);
     char str_ip[20];
     esp32_spi_pretty_ip(ip, str_ip);
     printf("IP: %s\r\n", str_ip);
+
+    for(int i=0; i<4; i++)
+    {
+        uint16_t time = esp32_spi_ping_ip(ip, 100);
+        printf("ping ip time: %dms\r\n", time);
+    }
+
+    for(int i=0; i<4; i++)
+    {
+        uint16_t time = esp32_spi_ping("sipeed.com", 100);
+        printf("ping sipeed.com time: %dms\r\n", time);
+    }
 }
 
 int main(void)
@@ -73,6 +79,7 @@ int main(void)
     printf("sizeof(esp32_spi_aps_list_t)=%lu\n", sizeof(esp32_spi_aps_list_t));
 */  
     esp32_spi_init();
+    esp32_spi_reset();
 
     test_invert();
     printf("firmware=%s\n", esp32_spi_firmware_version());
