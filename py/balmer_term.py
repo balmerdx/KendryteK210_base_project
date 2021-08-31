@@ -33,6 +33,27 @@ class BalmerTerminal:
         all_data = self.ser.read(1000)
         return all_data
 
+    def write_text(self, text_data):
+        '''
+        Отсылает текстовый пакет с данными.
+        В конце автоматически добавляет \n
+        '''
+        self.ser.write(text_data.encode('utf-8'))
+        self.ser.write(b'\n')
+        pass
+
+    def write_bin(self, bin_data):
+        '''
+            Отсылает бинарный пакет с данными.
+            В начале заголовок 0x00, 0x01, size_hi, size_lo
+            Потом данные
+        '''
+        if len(bin_data)==0:
+            return
+        assert(len(bin_data)<=0xFFFF)
+        self.ser.write(struct.pack("<HH", 0x100, len(bin_data)) + bin_data)
+        pass
+
     def set_input_nonblocking(self):
         orig_fl = fcntl.fcntl(sys.stdin, fcntl.F_GETFL)
         fcntl.fcntl(sys.stdin, fcntl.F_SETFL, orig_fl | os.O_NONBLOCK)
@@ -41,13 +62,25 @@ class BalmerTerminal:
         line = arg1.read()
         if line == 'quit\n':
             quit()
+        elif line.startswith('bin '):
+            line = line[4:-1] #remove 'bin ' & '\n'
+            self.write_bin(line.encode())
         else:
             #print('User input: {}'.format(line))
-            self.ser.write(line.encode('utf-8'))
+            self.ser.write(line.encode())
 
+    def conv_7bit(self, data):
+        b = bytearray()
+        for c in data:
+            if c<128:
+                b.append(c)
+            else:
+                b += b'\\'+hex(c)[1:].encode()
+        return b.decode()
+        
     def from_uart(self, ser):
         data = self.ser.read(1024)
-        print("ser=", data)
+        print(self.conv_7bit(data), end="")
         pass
 
     def terminal(self, port = '/dev/ttyUSB0', baudrate = 115200):

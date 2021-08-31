@@ -46,5 +46,7 @@ include_directories(${DRIVERS_ABS_PATH})
 add_source_files(../drivers/flash/*.c)
 add_source_files(../drivers/TBPipe/*.cpp)
 add_source_files(../drivers/MessageDebug/*.cpp)
+#add_source_files(../drivers/esp8266/*.cpp)
+#add_source_files(../drivers/esp32/*.c)
 include(${SDK_ROOT}/cmake/executable.cmake)
 

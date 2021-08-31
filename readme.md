@@ -18,6 +18,8 @@ cmake .. -DPROJ=base
 
 ## Сторонние проекты
 Оригинальные пути сторонних проектов, исходники которых есть в этом репозитории.
+Либо они были использованы тем, либо иным образом.
 
 * https://github.com/kendryte/kendryte-standalone-sdk
 * https://github.com/loboris/ktool
+* https://github.com/sipeed/Maixduino_esp32_fimware/releases

@@ -18,9 +18,11 @@
         "tuple": "cpp",
         "type_traits": "cpp",
         "utility": "cpp",
-        "cstdio": "c"
+        "cstdio": "c",
+        "string": "cpp",
+        "string_view": "cpp"
     },
 
-    "PROJECT_NAME": "base",
-    "git.enabled": false
+    "PROJECT_NAME": "base"
+    //,"git.enabled": false
 }
