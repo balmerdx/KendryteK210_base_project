@@ -3,43 +3,6 @@
 #include <stdbool.h>
 #include <vector>
 
-typedef enum
-{
-    SET_NET_CMD                 = (0x10),
-    SET_PASSPHRASE_CMD          = (0x11),
-    GET_CONN_STATUS_CMD         = (0x20),
-    GET_IPADDR_CMD              = (0x21),
-    GET_MACADDR_CMD             = (0x22),
-    GET_CURR_SSID_CMD           = (0x23),
-    GET_CURR_RSSI_CMD           = (0x25),
-    GET_CURR_ENCT_CMD           = (0x26),
-    SCAN_NETWORKS               = (0x27),
-    GET_SOCKET_CMD              = (0x3F),
-    GET_STATE_TCP_CMD           = (0x29),
-    DATA_SENT_TCP_CMD           = (0x2A),
-    AVAIL_DATA_TCP_CMD          = (0x2B),
-    GET_DATA_TCP_CMD            = (0x2C),
-    START_CLIENT_TCP_CMD        = (0x2D),
-    STOP_CLIENT_TCP_CMD         = (0x2E),
-    GET_CLIENT_STATE_TCP_CMD    = (0x2F),
-    DISCONNECT_CMD              = (0x30),
-    GET_IDX_RSSI_CMD            = (0x32),
-    GET_IDX_ENCT_CMD            = (0x33),
-    REQ_HOST_BY_NAME_CMD        = (0x34),
-    GET_HOST_BY_NAME_CMD        = (0x35),
-    START_SCAN_NETWORKS         = (0x36),
-    GET_FW_VERSION_CMD          = (0x37),
-    PING_CMD                    = (0x3E),
-    SEND_DATA_TCP_CMD           = (0x44),
-    GET_DATABUF_TCP_CMD         = (0x45),
-    GET_ADC_VAL_CMD             = (0x53),
-    SAMPLE_ADC_CMD              = (0x54),
-    SOFT_RESET_CMD              = (0x55),
-    START_CMD                   = (0xE0),
-    END_CMD                     = (0xEE),
-    ERR_CMD                     = (0xEF)
-}esp32_cmd_enum_t;
-
 typedef enum {
     CMD_FLAG                    = (0),
     REPLY_FLAG                  = (1<<7)
@@ -109,10 +72,11 @@ typedef struct __packed
 
 const esp32_spi_aps_list_t* esp32_spi_scan_networks();
 
-int8_t esp32_spi_connect_AP(const uint8_t *ssid, const uint8_t *password, uint8_t retry_times);
-uint16_t esp32_spi_ping(const uint8_t *dest, uint8_t dest_type, uint8_t ttl);
-void esp32_spi_pretty_ip(uint8_t *ip, uint8_t *str_ip);
-int8_t esp32_spi_get_host_by_name(const uint8_t *hostname, uint8_t *ip);
+bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_times);
+uint16_t esp32_spi_ping(const char *dest, uint8_t dest_type, uint8_t ttl);
+void esp32_spi_pretty_ip(const uint8_t *ip, char *str_ip);
+int8_t esp32_spi_get_host_by_name(const char *hostname, uint8_t *ip);
 
 //use esp32_spi_connect_AP
 bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase);
+void esp32_spi_reset();

@@ -221,8 +221,8 @@ bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase)
     len += strlen(cbuf+len)+1;
     return esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_SET_SSID_AND_PASS);
 }
-/*
-int8_t esp32_spi_connect_AP(const uint8_t *ssid, const uint8_t *password, uint8_t retry_times)
+
+bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_times)
 {
 #if ESP32_SPI_DEBUG
     printf("Connect to AP--> ssid: %s password:%s\r\n", ssid, password);
@@ -274,12 +274,49 @@ int8_t esp32_spi_connect_AP(const uint8_t *ssid, const uint8_t *password, uint8_
     return false;
 }
 
-uint16_t esp32_spi_ping(const uint8_t *dest, uint8_t dest_type, uint8_t ttl)
+void esp32_spi_reset()
 {
+#if ESP32_SPI_DEBUG
+    printf("Reset ESP32\r\n");
+#endif
 
+#if ESP32_HAVE_IO0
+    gpiohs_set_drive_mode(ESP32_SPI_IO0_HS_NUM, GPIO_DM_OUTPUT); //gpio0
+    gpiohs_set_pin(ESP32_SPI_IO0_HS_NUM, 1);
+#endif
+
+    //here we sleep 1s
+    gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
+
+    if ((int8_t)rst_num > 0)
+    {
+        gpiohs_set_drive_mode(rst_num, GPIO_DM_OUTPUT);
+        gpiohs_set_pin(rst_num, GPIO_PV_LOW);
+        msleep(500);
+        gpiohs_set_pin(rst_num, GPIO_PV_HIGH);
+        msleep(800);
+        gpiohs_set_drive_mode(rst_num, GPIO_DM_INPUT);
+    }
+    else
+    {
+        //soft reset
+        esp32_transfer_no_param(CESP_SOFT_RESET, 0);
+        msleep(1500);
+    }
+
+#if ESP32_HAVE_IO0
+    gpiohs_set_drive_mode(ESP32_SPI_IO0_HS_NUM, GPIO_DM_INPUT); //gpio0
+#endif
 }
 
-void esp32_spi_pretty_ip(uint8_t *ip, uint8_t *str_ip)
+//Converts a bytearray IP address to a dotted-quad string for printing
+void esp32_spi_pretty_ip(const uint8_t *ip, char *str_ip)
+{
+    sprintf(str_ip, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+    return;
+}
+
+uint16_t esp32_spi_ping(const uint8_t *dest, uint8_t dest_type, uint8_t ttl)
 {
 
 }
@@ -288,4 +325,3 @@ int8_t esp32_spi_get_host_by_name(const uint8_t *hostname, uint8_t *ip)
 {
 
 }
-*/

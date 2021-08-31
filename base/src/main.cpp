@@ -38,22 +38,22 @@ static void test_invert()
         printf("esp32_test_invert fail\n");
 }
 
-static int connect_AP(const uint8_t* ssid, const uint8_t* pass)
+static bool connect_AP(const char* ssid, const char* pass)
 {
-    int status = esp32_spi_connect_AP(ssid, pass, 10);
-    printf("Connecting to AP %s status: %d\r\n", (const char*)ssid, status);
+    bool status = esp32_spi_connect_AP(ssid, pass, 10);
+    printf("Connecting to AP %s status: %s\r\n", (const char*)ssid, status?"Ok":"Fail");
 
     return status;
 }
 
 static void test_connection()
 {
-    uint16_t time = esp32_spi_ping((uint8_t*)"sipeed.com", 1, 100);
+    uint16_t time = esp32_spi_ping("sipeed.com", 1, 100);
     printf("time: %dms\r\n", time);
     
     uint8_t ip[4];
-    esp32_spi_get_host_by_name((const uint8_t*)"sipeed.com", ip);
-    uint8_t str_ip[20];
+    esp32_spi_get_host_by_name("sipeed.com", ip);
+    char str_ip[20];
     esp32_spi_pretty_ip(ip, str_ip);
     printf("IP: %s\r\n", str_ip);
 }
@@ -80,8 +80,10 @@ int main(void)
     scan_WiFi();
 
     esp32_spi_wifi_set_ssid_and_pass(SSID, PASS);
-    //while(connect_AP((const uint8_t*)SSID, (const uint8_t*)PASS) != 0);
-    //test_connection();
+    while(!connect_AP(SSID, PASS));
+    test_connection();
+
+    //esp32_spi_reset();
 
     while(1)
     {

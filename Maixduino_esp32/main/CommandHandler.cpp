@@ -1095,37 +1095,10 @@ int getAdcValue(const uint8_t command[], uint8_t response[]){
 
 int softReset(const uint8_t command[], uint8_t response[]){
   esp_restart();
-  response[2] = 0;
-  return 4;
+  return 0;
 }
 
 typedef int (*CommandHandlerType)(const uint8_t command[], uint8_t response[]);
-
-/*
-const CommandHandlerType commandHandlers[] = {
-  // 0x00 -> 0x0f
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-  // 0x10 -> 0x1f
-  setNet, setPassPhrase, setKey, NULL, setIPconfig, setDNSconfig, setHostname, setPowerMode,
-  setApNet, setApPassPhrase, setDebug, getTemperature, NULL, NULL, NULL, NULL,
-
-  // 0x20 -> 0x2f
-  getConnStatus, getIPaddr, getMACaddr, getCurrSSID, getCurrBSSID, getCurrRSSI, getCurrEnct, scanNetworks,
-  startServerTcp, getStateTcp, dataSentTcp, availDataTcp, getDataTcp, startClientTcp, stopClientTcp, getClientStateTcp,
-
-  // 0x30 -> 0x3f
-  disconnect, NULL, getIdxRSSI, getIdxEnct, reqHostByName, getHostByName, startScanNetworks, getFwVersion,
-  NULL, sendUDPdata, getRemoteData, getTime, getIdxBSSID, getIdxChannel, ping, getSocket,
-
-  // 0x40 -> 0x4f
-  setClientCert, setCertKey, NULL, NULL, sendDataTcp, getDataBufTcp, insertDataBuf, NULL,
-  NULL, NULL, wpa2EntSetIdentity, wpa2EntSetUsername, wpa2EntSetPassword, wpa2EntSetCACert, wpa2EntSetCertKey, wpa2EntEnable,
-
-  // 0x50 -> 0x5f
-  setPinMode, setDigitalWrite, setAnalogWrite, getAdcValue, softReset,
-};
-*/
 
 const CommandHandlerType commandHandlers[] =
 {
@@ -1145,6 +1118,22 @@ const CommandHandlerType commandHandlers[] =
   getCurrBSSID, getCurrRSSI, getCurrEnct, scanNetworks,
   startServerTcp, getStateTcp, dataSentTcp, availDataTcp,
   getDataTcp, startClientTcp, stopClientTcp, getClientStateTcp,
+
+  // 0x30 -> 0x3f
+  disconnect, NULL, getIdxRSSI, getIdxEnct,
+  reqHostByName, getHostByName, NULL, getFwVersion,
+  NULL, sendUDPdata, getRemoteData, getTime,
+  getIdxBSSID, getIdxChannel, ping, getSocket,
+
+  // 0x40 -> 0x4f
+  setClientCert, setCertKey, NULL, NULL,
+  sendDataTcp, getDataBufTcp, insertDataBuf, NULL,
+  NULL, NULL, wpa2EntSetIdentity, wpa2EntSetUsername,
+  wpa2EntSetPassword, wpa2EntSetCACert, wpa2EntSetCertKey, wpa2EntEnable,
+
+  // 0x50 -> 0x5f
+  setPinMode, setDigitalWrite, setAnalogWrite, getAdcValue,
+  softReset,
 };
 
 #define NUM_COMMAND_HANDLERS (sizeof(commandHandlers) / sizeof(commandHandlers[0]))
