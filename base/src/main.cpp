@@ -64,6 +64,65 @@ static void test_connection()
     }
 }
 
+static void test_socket()
+{
+    uint8_t socket = connect_server_port_tcp("dl.sipeed.com", 80);
+    if(socket == 0xff)
+        return;
+
+    bool connected = esp32_spi_socket_connected(socket);
+    printf("open socket status: %s\r\n", connected?"connected":"disconnected");
+    #define LEN 1024 // its max buffer length with which esp32 can read fast enough from internet
+    uint8_t read_buf[LEN];
+
+    if(connected)
+    {
+        const char* buf = "GET /MAIX/MaixPy/assets/Alice.jpg HTTP/1.1\r\nHost: dl.sipeed.com\r\ncache-control: no-cache\r\n\r\n";
+        uint32_t len = 0;
+        
+        for(int i=0; i<5; i++)
+        {
+            len = esp32_spi_socket_write(socket, (uint8_t*)buf, strlen(buf)+1);
+            printf("esp32_spi_socket_write return: %d\r\n", len);
+            if(len)
+                break;
+            msleep(200);
+        }
+        
+        int total = 0;
+
+        msleep(300);
+
+        if(len > 0)
+        {
+            uint16_t len1 = 0;            
+            uint8_t tmp_buf[LEN] = {0};
+            do{
+                while(1)
+                {
+                    len = esp32_spi_socket_available(socket);
+                    printf("bytes available %d\r\n", len);
+                    if(len>0)
+                        break;
+                    msleep(300);
+                }
+
+                len1 = esp32_spi_socket_read(socket, &tmp_buf[0], len > LEN ? LEN:len);
+                strncat((char*)read_buf, (char*)tmp_buf, len1);
+                total += len1;
+                connected = esp32_spi_socket_connected(socket);
+                msleep(65);
+           }while(len > LEN && connected);
+
+            printf("total data read len: %d\r\n", total);
+        }
+    }
+
+    int close_status = esp32_spi_socket_close(socket);
+    printf("close socket status: %i\r\n", close_status);
+}
+
+
 int main(void)
 {
     msleep(300);
@@ -89,7 +148,7 @@ int main(void)
     esp32_spi_wifi_set_ssid_and_pass(SSID, PASS);
     while(!connect_AP(SSID, PASS));
     test_connection();
-
+    test_socket();
     //esp32_spi_reset();
 
     while(1)
@@ -98,171 +157,6 @@ int main(void)
     }
 }
 
-/*
-#include "esp32/esp32_spi.h"
-#include "esp32/esp32_spi_io.h"
-#define SPI_HARD
-
-#define ESP32_CS        FUNC_GPIOHS10
-#define ESP32_RST       FUNC_GPIOHS11
-#define ESP32_RDY       FUNC_GPIOHS12
-#define ESP32_MOSI      FUNC_GPIOHS13
-#define ESP32_MISO      FUNC_GPIOHS14
-#define ESP32_SCLK      FUNC_GPIOHS15
-
-const int BYTES_PER_SPI = 4;
-const int buffer_size = 16;
-uint8_t send_buffer[buffer_size];
-uint8_t receive_buffer[buffer_size];
-extern "C"
-{
-extern uint8_t cs_num, rst_num, rdy_num;
-void spi_send_data_normal(spi_device_num_t spi_num, spi_chip_select_t chip_select, const uint8_t *tx_buff, size_t tx_len);
-}
-
-#ifdef SPI_HARD
-static void init_spi()
-{
-    fpioa_set_function(25, ESP32_CS);
-    fpioa_set_function(8, ESP32_RST);
-    fpioa_set_function(9, ESP32_RDY);
-    //fpioa_set_function(28, ESP32_MOSI);
-    //fpioa_set_function(26, ESP32_MISO);
-    //fpioa_set_function(27, ESP32_SCLK);
-
-    cs_num = ESP32_CS - FUNC_GPIOHS0;
-    rdy_num = ESP32_RDY - FUNC_GPIOHS0;
-    rst_num = ESP32_RST;
-
-    gpiohs_set_drive_mode(rdy_num, GPIO_DM_INPUT); //ready
-
-    fpioa_set_function(27, FUNC_SPI0_SCLK);
-    fpioa_set_function(28, FUNC_SPI0_D0);
-    fpioa_set_function(26, FUNC_SPI0_D1);
-    //fpioa_set_function(SPI_MASTER_INT_PIN, FUNC_GPIOHS0 + SPI_MASTER_INT_IO);
-
-    spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 8*BYTES_PER_SPI, 1);
-    //spi_set_clk_rate(SPI_DEVICE_0, 1000000);
-    spi_set_clk_rate(SPI_DEVICE_0, 9000000);
-
-    gpiohs_set_drive_mode(cs_num, GPIO_DM_OUTPUT);
-    gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
-
-    //gpiohs_set_drive_mode(SPI_MASTER_INT_IO, GPIO_DM_INPUT_PULL_UP);
-    //gpiohs_set_pin_edge(SPI_MASTER_INT_IO, GPIO_PE_FALLING);
-    //gpiohs_set_irq(SPI_MASTER_INT_IO, 5, spi_slave_ready_irq);
-}
-
-#else
-static void init_spi()
-{
-    // INIT SPI
-    // #iomap at MaixDuino
-    fpioa_set_function(25, ESP32_CS);
-    fpioa_set_function(8, ESP32_RST);
-    fpioa_set_function(9, ESP32_RDY);
-    fpioa_set_function(28, ESP32_MOSI);
-    fpioa_set_function(26, ESP32_MISO);
-    fpioa_set_function(27, ESP32_SCLK);
-
-
-    esp32_spi_config_io(ESP32_CS - FUNC_GPIOHS0, ESP32_RST, ESP32_RDY - FUNC_GPIOHS0,
-                        ESP32_MOSI - FUNC_GPIOHS0, ESP32_MISO - FUNC_GPIOHS0, ESP32_SCLK - FUNC_GPIOHS0);
-
-    esp32_spi_init();
-
-    //gpiohs_set_drive_mode(ESP32_RST-FUNC_GPIOHS0, GPIO_DM_INPUT);
-}
-#endif
-
-static int8_t esp32_spi_wait_for_ready(gpio_pin_value_t value, uint64_t timeout_us)
-{
-    uint64_t tm = sysctl_get_time_us();
-    while ((sysctl_get_time_us() - tm) < 10 * 1000 * 1000) //10s
-    {
-        if (gpiohs_get_pin(rdy_num) == value)
-            return 0;
-        usleep(30);
-    }
-
-    return -1;
-}
-
-
-void send_and_receive()
-{
-    for(int i=0; i<sizeof(send_buffer); i++)
-        send_buffer[i] = i+1;
-
-    int8_t ready = esp32_spi_wait_for_ready(GPIO_PV_LOW, 10 * 1000000);
-    if(ready<0)
-    {
-        printf("esp32_spi_wait_for_ready(0) fail\n");
-        return;
-    }
-
-    gpiohs_set_pin(cs_num, GPIO_PV_LOW);
-    ready = esp32_spi_wait_for_ready(GPIO_PV_HIGH, 1000000);
-    if(ready<0)
-    {
-        printf("esp32_spi_wait_for_ready(1) fail\n");
-        gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
-        return;
-    }
-
-#ifdef SPI_HARD
-    spi_send_data_normal(SPI_DEVICE_0, SPI_CHIP_SELECT_0, send_buffer, sizeof(send_buffer));
-#else    
-    soft_spi_rw_len(send_buffer, NULL, sizeof(send_buffer));
-#endif    
-
-    gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
-
-    //get response
-    ready = esp32_spi_wait_for_ready(GPIO_PV_LOW, 10 * 1000000);
-    if(ready<0)
-    {
-        printf("response esp32_spi_wait_for_ready(0) fail\n");
-        return;
-    }
-
-    gpiohs_set_pin(cs_num, GPIO_PV_LOW);
-    ready = esp32_spi_wait_for_ready(GPIO_PV_HIGH, 1000000);
-    if(ready<0)
-    {
-        printf("response esp32_spi_wait_for_ready(1) fail\n");
-        gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
-        return;
-    }
-
-#ifdef SPI_HARD
-    spi_receive_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_0, NULL, 0, receive_buffer, sizeof(receive_buffer));
-#else    
-    soft_spi_rw_len(NULL, receive_buffer, sizeof(receive_buffer));
-#endif    
-    gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
-
-    printf("receive ");
-    for(int i=0;i<sizeof(receive_buffer);i++)
-        printf("%02x", (int)receive_buffer[i]);
-    printf("\n");
-}
-
-int main(void)
-{
-    msleep(300);
-    printf( "Kendryte " __DATE__ " " __TIME__ "\r\n");
-    printf( "ESP32 test app\r\n");
-
-    init_spi();
-
-    send_and_receive();
-    while(1)
-    {
-        msleep(1000);
-    }
-}
-*/
 /*
 #include "esp32/esp32_spi.h"
 #include "esp32/esp32_spi_io.h"

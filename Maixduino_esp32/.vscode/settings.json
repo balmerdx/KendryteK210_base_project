@@ -6,6 +6,16 @@
         "string_view": "cpp",
         "initializer_list": "cpp",
         "utility": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "*.ipp": "cpp",
+        "*.tcc": "cpp",
+        "atomic": "cpp",
+        "istream": "cpp",
+        "sstream": "cpp",
+        "streambuf": "cpp",
+        "memory": "cpp",
+        "iostream": "cpp",
+        "typeinfo": "cpp",
+        "complex": "cpp"
     }
 }

@@ -20,7 +20,7 @@
 #define BUFFER_SIZE 4094
 
 static uint8_t cs_num, rst_num, rdy_num;
-static bool debug = true;
+static const bool debug = true;
 
 static uint8_t rx_buffer[BUFFER_SIZE];
 static uint8_t tx_buffer[BUFFER_SIZE];
@@ -187,11 +187,11 @@ const esp32_spi_aps_list_t* esp32_spi_scan_networks()
     return (const esp32_spi_aps_list_t*)rx_buffer;
 }
 
-int8_t esp32_spi_status()
+esp32_wlan_enum_t esp32_spi_status()
 {
     if(!esp32_transfer_no_param(CESP_GET_CONN_STATUS, CESP_RESP_GET_CONN_STATUS))
-        return 0;
-    return rx_buffer[1];
+        return WL_NO_MODULE;
+    return (esp32_wlan_enum_t)rx_buffer[1];
 }
 
 void strncpy_s(char * dest, const char * src, size_t destsz)
@@ -353,4 +353,158 @@ uint16_t esp32_spi_ping(const char *dest, uint8_t ttl)
     if(!esp32_spi_get_host_by_name(dest, ip))
         return 0xFFFF;
     return esp32_spi_ping_ip(ip, ttl);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+#define ENUM_TO_STR(x) \
+    case (x):          \
+        return (#x)
+
+const char* wlan_enum_to_str(esp32_wlan_enum_t x)
+{
+    switch (x)
+    {
+        ENUM_TO_STR(WL_IDLE_STATUS);
+        ENUM_TO_STR(WL_NO_SSID_AVAIL);
+        ENUM_TO_STR(WL_SCAN_COMPLETED);
+        ENUM_TO_STR(WL_CONNECTED);
+        ENUM_TO_STR(WL_CONNECT_FAILED);
+        ENUM_TO_STR(WL_CONNECTION_LOST);
+        ENUM_TO_STR(WL_DISCONNECTED);
+        ENUM_TO_STR(WL_AP_LISTENING);
+        ENUM_TO_STR(WL_AP_CONNECTED);
+        ENUM_TO_STR(WL_AP_FAILED);
+        ENUM_TO_STR(WL_NO_MODULE);
+    }
+    return "unknown";
+}
+
+uint8_t esp32_spi_get_socket()
+{
+    if(!esp32_transfer_no_param(CESP_GET_SOCKET, CESP_RESP_GET_SOCKET))
+        return 0xFF;
+    return rx_buffer[0];
+}
+
+/*
+dest_type 
+            0 ip array
+            1 hostname
+*/
+static bool esp32_spi_socket_open_internal(uint8_t sock_num, const uint8_t *dest, uint8_t dest_type,
+                             uint16_t port, esp32_socket_mode_enum_t conn_mode)
+{
+    size_t len = 0;
+    tx_buffer[0] = CESP_START_SOCKET_CLIENT;
+    tx_buffer[1] = dest_type;
+    memcpy(tx_buffer+2, &port, 2);
+    len += 4;
+    tx_buffer[len+0] = sock_num;
+    tx_buffer[len+1] = conn_mode;
+    tx_buffer[len+2] = 0;
+    tx_buffer[len+3] = 0;
+    len += 4;
+
+    if(dest_type)
+    {
+        //hostname
+        char* buf = (char*)(tx_buffer+len);
+        strncpy_s(buf, (const char*)dest, BUFFER_SIZE-len);
+        len += strlen(buf)+1;
+    } else
+    {
+        //ip address
+        memcpy(tx_buffer+len, dest, 4);
+        len += 4;
+    }
+
+    if(!esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_START_SOCKET_CLIENT))
+        return 0xFF;
+
+    return rx_buffer[0]?true:false;
+}
+
+bool esp32_spi_socket_open_ip(uint8_t sock_num, const uint8_t ip[4],
+                             uint16_t port, esp32_socket_mode_enum_t conn_mode)
+{
+    return esp32_spi_socket_open_internal(sock_num, ip, 0, port, conn_mode);
+}
+
+bool esp32_spi_socket_open(uint8_t sock_num, const char* hostname,
+                             uint16_t port, esp32_socket_mode_enum_t conn_mode)
+
+{
+    return esp32_spi_socket_open_internal(sock_num, (const uint8_t*)hostname, 1, port, conn_mode);
+}
+
+bool esp32_spi_socket_connected(uint8_t socket_num)
+{
+    uint32_t sn = socket_num;
+    if(!esp32_transfer_no_param(CESP_GET_SOCKET_STATE|(sn<<8), CESP_RESP_GET_SOCKET_STATE))
+        return 0xFF;
+    return rx_buffer[0];
+}
+
+uint16_t esp32_spi_socket_write(uint8_t socket_num, uint8_t *buffer, uint16_t len)
+{
+    if(len > BUFFER_SIZE-4)
+        return 0;
+    tx_buffer[0] = CESP_SEND_SOCKET_DATA;
+    tx_buffer[1] = socket_num;
+    memcpy(tx_buffer+2, &len, 2);
+    memcpy(tx_buffer+4, buffer, len);
+
+    if(!esp32_transfer(tx_buffer, len+4, rx_buffer, CESP_RESP_SEND_SOCKET_DATA))
+        return 0xFF;
+    return *(uint16_t*)rx_buffer;
+}
+
+uint16_t esp32_spi_socket_available(uint8_t socket_num)
+{
+    uint32_t sn = socket_num;
+    if(!esp32_transfer_no_param(CESP_AVAIL_SOCKET_DATA|(sn<<8), CESP_RESP_AVAIL_SOCKET_DATA))
+        return 0xFF;
+    return *(uint16_t*)rx_buffer;
+}
+
+uint16_t esp32_spi_socket_read(uint8_t socket_num, uint8_t *buff, uint16_t size)
+{
+    if(size > BUFFER_SIZE-4)
+        return 0;
+    tx_buffer[0] = CESP_READ_SOCKET_DATA;
+    tx_buffer[1] = socket_num;
+    memcpy(tx_buffer+2, &size, 2);
+
+    if(!esp32_transfer(tx_buffer, 4, rx_buffer, size+4))
+        return 0xFF;
+    memcpy(buff, rx_buffer+4, size);
+    return *(uint16_t*)rx_buffer;
+}
+
+int8_t esp32_spi_socket_close(uint8_t socket_num)
+{
+    uint32_t sn = socket_num;
+    if(!esp32_transfer_no_param(CESP_CLOSE_SOCKET|(sn<<8), CESP_RESP_CLOSE_SOCKET))
+        return 0xFF;
+    return *(uint16_t*)rx_buffer;
+}
+
+uint8_t connect_server_port_tcp(const char *host, uint16_t port)
+{
+    uint8_t sock = esp32_spi_get_socket();
+    if (sock == 0xff)
+        return 0xff;
+    uint8_t ip[4];
+    if (!esp32_spi_get_host_by_name(host, ip))
+    {
+        esp32_spi_socket_close(sock);
+        return 0xff;
+    }
+
+    if (!esp32_spi_socket_open_ip(sock, ip, port, TCP_MODE))
+    {
+        esp32_spi_socket_close(sock);        
+        return 0xff;
+    }
+    return sock;
 }

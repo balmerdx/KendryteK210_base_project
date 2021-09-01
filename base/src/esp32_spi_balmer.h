@@ -8,20 +8,6 @@ typedef enum {
     REPLY_FLAG                  = (1<<7)
 }esp32_flag_t;
 
-typedef enum{
-    SOCKET_CLOSED               = (0),
-    SOCKET_LISTEN               = (1),
-    SOCKET_SYN_SENT             = (2),
-    SOCKET_SYN_RCVD             = (3),
-    SOCKET_ESTABLISHED          = (4),
-    SOCKET_FIN_WAIT_1           = (5),
-    SOCKET_FIN_WAIT_2           = (6),
-    SOCKET_CLOSE_WAIT           = (7),
-    SOCKET_CLOSING              = (8),
-    SOCKET_LAST_ACK             = (9),
-    SOCKET_TIME_WAIT            = (10)
-}esp32_socket_enum_t;
-
 typedef enum
 {
     WL_IDLE_STATUS              = (0),
@@ -50,7 +36,7 @@ size_t esp32_round_up4(size_t s);
 
 void esp32_spi_init();
 
-int8_t esp32_spi_status();
+esp32_wlan_enum_t esp32_spi_status();
 
 bool esp32_test_invert(uint8_t* data, size_t len);
 
@@ -85,3 +71,26 @@ bool esp32_spi_get_host_by_name(const char *hostname, uint8_t ip[4]);
 //use esp32_spi_connect_AP
 bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase);
 void esp32_spi_reset();
+
+
+uint8_t esp32_spi_get_socket();
+//Открываем соединение, но не ожидаем, что открытие завершится.
+//Более высокоуровневая функция - connect_server_port_tcp
+bool esp32_spi_socket_open_ip(uint8_t sock_num, const uint8_t ip[4],
+                             uint16_t port, esp32_socket_mode_enum_t conn_mode);
+bool esp32_spi_socket_open(uint8_t sock_num, const char* hostname,
+                             uint16_t port, esp32_socket_mode_enum_t conn_mode);
+
+int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_type, uint16_t port, esp32_socket_mode_enum_t conn_mod);
+
+bool esp32_spi_socket_connected(uint8_t socket_num);
+uint16_t esp32_spi_socket_write(uint8_t socket_num, uint8_t *buffer, uint16_t len);
+//Количество данных, доступных для чтения в этом сокете
+uint16_t esp32_spi_socket_available(uint8_t socket_num);
+uint16_t esp32_spi_socket_read(uint8_t socket_num, uint8_t *buff, uint16_t size);
+int8_t esp32_spi_socket_close(uint8_t socket_num);
+
+const char* wlan_enum_to_str(esp32_wlan_enum_t x);
+
+//return socket
+uint8_t connect_server_port_tcp(const char *host, uint16_t port);
