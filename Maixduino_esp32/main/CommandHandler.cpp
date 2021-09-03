@@ -25,7 +25,6 @@
 #include "esp_wpa2.h"
 #include "Esp32CommandList.h"
 
-#include <driver/adc.h>
 #include <driver/spi_common.h>
 
 #include "CommandHandler.h"
@@ -157,8 +156,6 @@ int setApPassPhrase(const uint8_t command[], uint8_t response[])
   return 6;
 }
 
-extern void setDebug(int debug);
-
 int setDebug(const uint8_t command[], uint8_t response[])
 {
   const uint32_t* cmd32 = (const uint32_t*)command;
@@ -175,14 +172,8 @@ extern "C" {
 int getTemperature(const uint8_t command[], uint8_t response[])
 {
   float temperature = (temprature_sens_read() - 32) / 1.8;
-
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(temperature); // parameter 1 length
-
-  memcpy(&response[4], &temperature, sizeof(temperature));
-
- 
-  return 9;
+  memcpy(response, &temperature, sizeof(temperature));
+  return CESP_RESP_GET_TEMPERATURE;
 }
 
 int getConnStatus(const uint8_t command[], uint8_t response[])
@@ -356,22 +347,6 @@ int startServerTcp(const uint8_t command[], uint8_t response[])
   return 6;
 }
 
-int getStateTcp(const uint8_t command[], uint8_t response[])
-{
-  uint8_t socket = command[4];
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (tcpServers[socket]) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
-
-  return 6;
-}
-
 int availSocketData(const uint8_t command[], uint8_t response[])
 {
   uint8_t socket = command[1];
@@ -432,37 +407,6 @@ int availSocketData(const uint8_t command[], uint8_t response[])
   return CESP_RESP_AVAIL_SOCKET_DATA;
 }
 
-int getDataTcp(const uint8_t command[], uint8_t response[])
-{
-  uint8_t socket = command[4];
-  uint8_t peek = command[6];
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (socketTypes[socket] == 0x00) {
-    if (peek) {
-      response[4] = tcpClients[socket].peek();
-    } else {
-      response[4] = tcpClients[socket].read();
-    }
-  } else if (socketTypes[socket] == 0x01) {
-    if (peek) {
-      response[4] = udps[socket].peek();
-    } else {
-      response[4] = udps[socket].read();
-    }
-  } else if (socketTypes[socket] == 0x02) {
-    if (peek) {
-      response[4] = tlsClients[socket].peek();
-    } else {
-      response[4] = tlsClients[socket].read();
-    }
-  }
-
-  return 6;
-}
-
 int startSocketClient(const uint8_t command[], uint8_t response[])
 {
   const char* host = NULL;
@@ -475,10 +419,10 @@ int startSocketClient(const uint8_t command[], uint8_t response[])
   socket = command[4];
   type = command[5];
 
-  printf("startSocketClient type=%i port=%u\n", (int)type, (int)port);
+  //printf("startSocketClient type=%i port=%u\n", (int)type, (int)port);
   if (command[1] == 0) {
     memcpy(&ip, command+8, sizeof(ip));
-    printf("ip=%u.%u.%u.%u\n", ip&0xFF, (ip>>8)&0xFF, (ip>>16)&0xFF, (ip>>24)&0xFF);
+    //printf("ip=%u.%u.%u.%u\n", ip&0xFF, (ip>>8)&0xFF, (ip>>16)&0xFF, (ip>>24)&0xFF);
   } else {
     host = (const char*)(command+8);
   }
@@ -567,15 +511,12 @@ int getSocketState(const uint8_t command[], uint8_t response[])
   return CESP_RESP_GET_SOCKET_STATE;
 }
 
-int disconnect(const uint8_t command[], uint8_t response[])
+int disconnectWiFi(const uint8_t command[], uint8_t response[])
 {
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = 1;
-
   WiFi.disconnect();
 
-  return 6;
+  *(uint32_t*)response = 1;
+  return CESP_RESP_DISCONNECT_WIFI;
 }
 
 int getIdxRSSI(const uint8_t command[], uint8_t response[])
@@ -718,7 +659,7 @@ int sendSocketData(const uint8_t command[], uint8_t response[])
   } else if (socketTypes[socket] == 0x02) {
     written = tlsClients[socket].write(data, length);
   }
-  printf("sendSocketData socket=%i length=%i written=%i\n", (int)socket, (int)length, (int)written);
+  
   *(uint32_t*)response = written;
   return CESP_RESP_SEND_SOCKET_DATA;
 }
@@ -733,9 +674,10 @@ int readSocketData(const uint8_t command[], uint8_t response[])
   memcpy(&length, &command[2], sizeof(length));
   uint8_t* out = response + 4;
 
-  if(length > SPI_BUFFER_LEN-4) {
-    //no read data
-  } else if (socketTypes[socket] == 0x00) {
+  if(length > SPI_BUFFER_LEN-4)
+    length = SPI_BUFFER_LEN-4;
+
+  if (socketTypes[socket] == 0x00) {
     read = tcpClients[socket].read(out, length);
   } else if (socketTypes[socket] == 0x01) {
     read = udps[socket].read(out, length);
@@ -745,9 +687,7 @@ int readSocketData(const uint8_t command[], uint8_t response[])
 
   if (read < 0)
     read = 0;
-
   *(uint32_t*)response = read;
-
   return (4 + read);
 }
 
@@ -941,26 +881,30 @@ typedef int (*CommandHandlerType)(const uint8_t command[], uint8_t response[]);
 const CommandHandlerType commandHandlers[] =
 {
   // 0x00 -> 0x0f
-  invertBytes, setDebug, getFwVersion, NULL,
+  invertBytes, setDebug, getFwVersion, getTemperature,
   NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL,
   NULL, NULL, NULL, NULL,
   // 0x10 -> 0x1f
-  setSsidAndPass, NULL, scanNetworks, scanNetworksResult,
-  NULL, setDNSconfig, setHostname, setPowerMode,
-  NULL, setApPassPhrase, setDebug, getTemperature,
+  //0123
+  disconnectWiFi, setSsidAndPass, scanNetworks, scanNetworksResult,
+  //4567
+  setApPassPhrase, setDNSconfig, setHostname, setPowerMode,
+  //89ab
+  NULL, NULL, NULL, NULL,
+  //cdef
   NULL, NULL, NULL, NULL,
 
   // 0x20 -> 0x2f
   getConnStatus, getIPaddr, getMACaddr, getCurrSSID,
-  getCurrBSSID, getCurrRSSI, getCurrEnct, scanNetworks,
+  getCurrBSSID, getCurrRSSI, getCurrEnct, NULL,
   //89ab
-  startServerTcp, getStateTcp, NULL, availSocketData,
+  startServerTcp, NULL, NULL, availSocketData,
   //cdef
-  getDataTcp, startSocketClient, closeSocket, getSocketState,
+  NULL, startSocketClient, closeSocket, getSocketState,
 
   // 0x30 -> 0x3f
-  disconnect, NULL, getIdxRSSI, getIdxEnct,
+  NULL, NULL, getIdxRSSI, getIdxEnct,
   reqHostByName, NULL, NULL, getFwVersion,
   NULL, sendUDPdata, getRemoteData, getTime,
   getIdxBSSID, getIdxChannel, ping, getSocket,

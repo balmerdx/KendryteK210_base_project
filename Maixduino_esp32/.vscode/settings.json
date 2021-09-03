@@ -18,6 +18,9 @@
         "typeinfo": "cpp",
         "complex": "cpp",
         "cstddef": "cpp",
-        "limits": "cpp"
+        "limits": "cpp",
+        "*.inc": "cpp",
+        "fstream": "cpp",
+        "iosfwd": "cpp"
     }
 }

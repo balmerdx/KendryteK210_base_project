@@ -53,7 +53,6 @@ int WiFiClient::connect(/*IPAddress*/uint32_t ip, uint16_t port)
 
   if (_socket < 0) {
     _socket = -1;
-    printf("WiFiClient::connect fail _socket=%i\n", _socket);
     return 0;
   }
 
@@ -67,35 +66,25 @@ int WiFiClient::connect(/*IPAddress*/uint32_t ip, uint16_t port)
   if (::connect(_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     close(_socket);
     _socket = -1;
-    printf("WiFiClient::connect fail _socket=%i\n", _socket);
     return 0;
   }
 
   int nonBlocking = 1;
   ioctl(_socket, FIONBIO, &nonBlocking);
-  printf("WiFiClient::connect ok _socket=%i\n", _socket);
   return 1;
-}
-
-size_t WiFiClient::write(uint8_t b)
-{
-  return write(&b, 1);
 }
 
 size_t WiFiClient::write(const uint8_t *buf, size_t size)
 {
-  printf("WiFiClient::write size=%i _socket=%i\n", (int)size, _socket);
   if (_socket == -1) {
     return 0;
   }
 
   int result = send(_socket, (void*)buf, size, MSG_DONTWAIT);
-  printf("WiFiClient::write result=%i\n", result);
 
   if (result < 0) {
     close(_socket);
     _socket = -1;
-    printf("WiFiClient::write _socket=-1\n");
     return 0;
   }
 
@@ -120,34 +109,20 @@ int WiFiClient::available()
   return result;
 }
 
-int WiFiClient::read()
-{
-  uint8_t b;
-
-  if (read(&b, sizeof(b)) == -1) {
-    return -1;
-  }
-
-  return b;
-}
-
 int WiFiClient::read(uint8_t* buf, size_t size)
 {
+  /*
   if (!available()) {
     return -1;
   }
+  */
 
   int result = recv(_socket, buf, size, MSG_DONTWAIT);
 
   if (result <= 0 && errno != EWOULDBLOCK) {
     close(_socket);
     _socket = -1;
-    printf("WiFiClient::read _socket=-1\n");
-    return 0;
-  }
-
-  if (result == 0) {
-    result = -1;
+    return -1;
   }
 
   return result;
@@ -161,7 +136,6 @@ int WiFiClient::peek()
     if (errno != EWOULDBLOCK) {
       close(_socket);
       _socket = -1;
-      printf("WiFiClient::peek _socket=-1\n");
     }
 
     return -1;

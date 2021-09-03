@@ -10,6 +10,9 @@
 #include "esp32_spi_balmer.h"
 #include "../../Maixduino_esp32/main/Esp32CommandList.h"
 
+static const bool debug = false;
+
+
 #define ESP32_CS        FUNC_GPIOHS10
 #define ESP32_RST       FUNC_GPIOHS11
 #define ESP32_RDY       FUNC_GPIOHS12
@@ -20,7 +23,6 @@
 #define BUFFER_SIZE 4094
 
 static uint8_t cs_num, rst_num, rdy_num;
-static const bool debug = true;
 
 static uint8_t rx_buffer[BUFFER_SIZE];
 static uint8_t tx_buffer[BUFFER_SIZE];
@@ -174,6 +176,12 @@ const char* esp32_spi_firmware_version()
     esp32_transfer_no_param(CESP_GET_FW_VERSION, CESP_RESP_FW_VERSION);
     rx_buffer[CESP_RESP_FW_VERSION] = 0;
     return (const char*)rx_buffer;
+}
+
+float esp32_spi_get_temperature()
+{
+    esp32_transfer_no_param(CESP_GET_TEMPERATURE, CESP_RESP_FW_VERSION);
+    return *(float*)rx_buffer;
 }
 
 const esp32_spi_aps_list_t* esp32_spi_scan_networks()
@@ -451,11 +459,11 @@ bool esp32_spi_socket_connected(uint8_t socket_num)
 {
     uint32_t sn = socket_num;
     if(!esp32_transfer_no_param(CESP_GET_SOCKET_STATE|(sn<<8), CESP_RESP_GET_SOCKET_STATE))
-        return 0xFF;
+        return false;
     return rx_buffer[0];
 }
 
-uint16_t esp32_spi_socket_write(uint8_t socket_num, uint8_t *buffer, uint16_t len)
+uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len)
 {
     if(len > BUFFER_SIZE-4)
         return 0;
@@ -465,7 +473,7 @@ uint16_t esp32_spi_socket_write(uint8_t socket_num, uint8_t *buffer, uint16_t le
     memcpy(tx_buffer+4, buffer, len);
 
     if(!esp32_transfer(tx_buffer, len+4, rx_buffer, CESP_RESP_SEND_SOCKET_DATA))
-        return 0xFF;
+        return 0;
     return *(uint16_t*)rx_buffer;
 }
 
@@ -473,11 +481,11 @@ uint16_t esp32_spi_socket_available(uint8_t socket_num)
 {
     uint32_t sn = socket_num;
     if(!esp32_transfer_no_param(CESP_AVAIL_SOCKET_DATA|(sn<<8), CESP_RESP_AVAIL_SOCKET_DATA))
-        return 0xFF;
+        return 0;
     return *(uint16_t*)rx_buffer;
 }
 
-uint16_t esp32_spi_socket_read(uint8_t socket_num, uint8_t *buff, uint16_t size)
+uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size)
 {
     if(size > BUFFER_SIZE-4)
         return 0;
@@ -486,7 +494,7 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, uint8_t *buff, uint16_t size)
     memcpy(tx_buffer+2, &size, 2);
 
     if(!esp32_transfer(tx_buffer, 4, rx_buffer, size+4))
-        return 0xFF;
+        return 0;
     memcpy(buff, rx_buffer+4, size);
     return *(uint16_t*)rx_buffer;
 }

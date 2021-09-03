@@ -41,6 +41,7 @@ esp32_wlan_enum_t esp32_spi_status();
 bool esp32_test_invert(uint8_t* data, size_t len);
 
 const char* esp32_spi_firmware_version();
+float esp32_spi_get_temperature();
 
 typedef struct __packed
 {
@@ -84,10 +85,14 @@ bool esp32_spi_socket_open(uint8_t sock_num, const char* hostname,
 int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_type, uint16_t port, esp32_socket_mode_enum_t conn_mod);
 
 bool esp32_spi_socket_connected(uint8_t socket_num);
-uint16_t esp32_spi_socket_write(uint8_t socket_num, uint8_t *buffer, uint16_t len);
+//Пишем данные в сокет.
+//return - количество записанных данных.
+uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len);
 //Количество данных, доступных для чтения в этом сокете
 uint16_t esp32_spi_socket_available(uint8_t socket_num);
-uint16_t esp32_spi_socket_read(uint8_t socket_num, uint8_t *buff, uint16_t size);
+//Читаем данные из сокета
+//return - количество прочитанных данных.
+uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size);
 int8_t esp32_spi_socket_close(uint8_t socket_num);
 
 const char* wlan_enum_to_str(esp32_wlan_enum_t x);

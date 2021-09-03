@@ -26,8 +26,6 @@
 #include <esp32/rom/uart.h>
 
 #include <driver/periph_ctrl.h>
-#include <driver/uart.h>
-#include <driver/adc.h>
 
 #include <Arduino.h>
 
@@ -38,7 +36,7 @@
 
 #define SPI_BUFFER_LEN SPI_MAX_DMA_LEN
 
-int debug = 1;
+bool debug = false;
 
 uint8_t* commandBuffer;
 uint8_t* responseBuffer;
@@ -46,16 +44,26 @@ uint8_t* responseBuffer;
 void dumpBuffer(const char* label, uint8_t data[], int length) {
   printf("%s: ", label);
 
-  for (int i = 0; i < length; i++) {
+  int max_print_length = 16;
+  int print_length = length;
+  if(length > max_print_length)
+    print_length = max_print_length;
+
+  for (int i = 0; i < print_length; i++)
     printf("%02x", data[i]);
-  }
+
+  if(length > max_print_length)
+    printf(" total len=%i", length);
 
   printf("\r\n");
 }
 
-void setDebug(int d) {
+void setDebug(bool d) {
   debug = d;
-  printf("Balmer debug=%i\r\n", d);
+  if(debug)
+    printf("Debug enabled\n");
+  else
+    printf("Debug disabled\n");
 }
 
 void setupWiFi();
@@ -98,12 +106,12 @@ void loop() {
   int commandLength = SPIS.transfer(NULL, commandBuffer, SPI_BUFFER_LEN);
   if (debug)  ets_printf("%d", commandLength);
   if (commandLength == 0) {
+    vTaskDelay(2 / portTICK_PERIOD_MS);
     return;
   }
 
-  if (debug) {
+  if (debug)
     dumpBuffer("COMMAND", commandBuffer, commandLength);
-  }
 
   // process
   memset(responseBuffer, 0x00, SPI_BUFFER_LEN);
@@ -121,15 +129,6 @@ void loop() {
 
   if (debug) {
     dumpBuffer("RESPONSE", responseBuffer, responseLength);
-  }
-}
-
-void setupADC(){
-  uint8_t channels[] = {ADC_CHANNEL_0, ADC_CHANNEL_3, ADC_CHANNEL_4, ADC_CHANNEL_5, ADC_CHANNEL_6, ADC_CHANNEL_7};
-  adc1_config_width(ADC_WIDTH_BIT_12);
-  for(uint8_t i=0; i<sizeof(channels); ++i)
-  {
-    adc1_config_channel_atten((adc1_channel_t)channels[i], ADC_ATTEN_DB_11);
   }
 }
 
