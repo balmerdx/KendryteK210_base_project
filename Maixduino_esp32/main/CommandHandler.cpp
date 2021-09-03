@@ -76,31 +76,10 @@ int setSsidAndPass(const uint8_t command[], uint8_t response[])
   const char* ssid = (const char*)(command+1);
   const char* pass = ssid+strlen(ssid)+1;
 
-  if(*pass)
-    WiFi.begin(ssid, pass);
-  else
-    WiFi.begin(ssid);
+  WiFi.begin(ssid, pass);
 
   *(uint32_t*)response = command[0];
   return CESP_RESP_SET_SSID_AND_PASS;
-}
-
-int setIPconfig(const uint8_t command[], uint8_t response[])
-{
-  uint32_t ip;
-  uint32_t gwip;
-  uint32_t mask;
-
-  memcpy(&ip, &command[6], sizeof(ip));
-  memcpy(&gwip, &command[11], sizeof(gwip));
-  memcpy(&mask, &command[16], sizeof(mask));
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  WiFi.config(ip, gwip, mask);
-
-  return 6;
 }
 
 int setDNSconfig(const uint8_t command[], uint8_t response[])
@@ -149,28 +128,6 @@ int setPowerMode(const uint8_t command[], uint8_t response[])
   response[2] = 1; // number of parameters
   response[3] = 1; // parameter 1 length
   response[4] = 1;
-
-  return 6;
-}
-
-int setApNet(const uint8_t command[], uint8_t response[])
-{
-  char ssid[32 + 1];
-  uint8_t channel;
-
-  memset(ssid, 0x00, sizeof(ssid));
-  memcpy(ssid, &command[4], command[3]);
-
-  channel = command[5 + command[3]];
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (WiFi.beginAP(ssid, channel) != WL_AP_FAILED) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
 
   return 6;
 }
@@ -224,6 +181,7 @@ int getTemperature(const uint8_t command[], uint8_t response[])
 
   memcpy(&response[4], &temperature, sizeof(temperature));
 
+ 
   return 9;
 }
 
@@ -239,6 +197,7 @@ int getConnStatus(const uint8_t command[], uint8_t response[])
 
 int getIPaddr(const uint8_t command[], uint8_t response[])
 {
+  WiFi.updateIpInfo();
   /*IPAddress*/uint32_t ip = WiFi.localIP();
   /*IPAddress*/uint32_t mask = WiFi.subnetMask();
   /*IPAddress*/uint32_t gwip = WiFi.gatewayIP();
@@ -874,20 +833,6 @@ int setDigitalWrite(const uint8_t command[], uint8_t response[])
   return 6;
 }
 
-int setAnalogWrite(const uint8_t command[], uint8_t response[])
-{
-  uint8_t pin = command[4];
-  uint8_t value = command[6];
-
-  analogWrite(pin, value);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = 1;
-
-  return 6;
-}
-
 int wpa2EntSetIdentity(const uint8_t command[], uint8_t response[]) {
   char identity[32 + 1];
 
@@ -986,24 +931,6 @@ int setCertKey(const uint8_t command[], uint8_t response[]){
   return 6;
 }
 
-
-int getAdcValue(const uint8_t command[], uint8_t response[]){
-  uint8_t len = command[3];
-  uint8_t j = 0;
-  int v;
-
-  response[2] = len;
-  for(int i=0; i<len; ++i){
-    response[3+j] = 3;
-    v = adc1_get_raw( (adc1_channel_t)command[4+i] );
-    response[4+j] = command[4+i];
-    response[5+j] = (uint8_t)(v >> 8 & 0xff);
-    response[6+j] = (uint8_t)(v & 0xff);
-    j += 4;
-  }
-  return len*4+4;
-}
-
 int softReset(const uint8_t command[], uint8_t response[]){
   esp_restart();
   return 0;
@@ -1020,8 +947,8 @@ const CommandHandlerType commandHandlers[] =
   NULL, NULL, NULL, NULL,
   // 0x10 -> 0x1f
   setSsidAndPass, NULL, scanNetworks, scanNetworksResult,
-  setIPconfig, setDNSconfig, setHostname, setPowerMode,
-  setApNet, setApPassPhrase, setDebug, getTemperature,
+  NULL, setDNSconfig, setHostname, setPowerMode,
+  NULL, setApPassPhrase, setDebug, getTemperature,
   NULL, NULL, NULL, NULL,
 
   // 0x20 -> 0x2f
@@ -1045,7 +972,7 @@ const CommandHandlerType commandHandlers[] =
   wpa2EntSetPassword, wpa2EntSetCACert, wpa2EntSetCertKey, wpa2EntEnable,
 
   // 0x50 -> 0x5f
-  setPinMode, setDigitalWrite, setAnalogWrite, getAdcValue,
+  setPinMode, setDigitalWrite, NULL, NULL,
   softReset,
 };
 
@@ -1062,12 +989,6 @@ void CommandHandlerClass::begin()
   for (int i = 0; i < MAX_SOCKETS; i++) {
     socketTypes[i] = 255;
   }
-
-  _updateGpio0PinSemaphore = xSemaphoreCreateCounting(2, 0);
-
-  WiFi.onReceive(CommandHandlerClass::onWiFiReceive);
-
-  //balmer temp xTaskCreatePinnedToCore(CommandHandlerClass::gpio0Updater, "gpio0Updater", 8192, NULL, 1, NULL, 1);
 }
 
 int CommandHandlerClass::handle(const uint8_t command[], uint8_t response[])
@@ -1082,66 +1003,10 @@ int CommandHandlerClass::handle(const uint8_t command[], uint8_t response[])
     }
   }
 
-  xSemaphoreGive(_updateGpio0PinSemaphore);
-
   //round up 4
   responseLength = (responseLength+3)&~3;
 
   return responseLength;
-}
-
-void CommandHandlerClass::gpio0Updater(void*)
-{
-  while (1) {
-    CommandHandler.updateGpio0Pin();
-  }
-}
-
-void CommandHandlerClass::updateGpio0Pin()
-{
-  xSemaphoreTake(_updateGpio0PinSemaphore, portMAX_DELAY);
-
-  int available = 0;
-
-  for (int i = 0; i < MAX_SOCKETS; i++) {
-    if (socketTypes[i] == 0x00) {
-      if (tcpServers[i] && tcpServers[i].available()) {
-        available = 1;
-        break;
-      } else if (tcpClients[i] && tcpClients[i].connected() && tcpClients[i].available()) {
-        available = 1;
-        break;
-      }
-    }
-
-    if (socketTypes[i] == 0x01 && udps[i] && (udps[i].available() || udps[i].parsePacket())) {
-      available = 1;
-      break;
-    }
-
-    if (socketTypes[i] == 0x02 && tlsClients[i] && tlsClients[i].connected() && tlsClients[i].available()) {
-      available = 1;
-      break;
-    }
-  }
-
-  if (available) {
-    digitalWrite(0, HIGH);
-  } else {
-    digitalWrite(0, LOW);
-  }
-
-  vTaskDelay(1);
-}
-
-void CommandHandlerClass::onWiFiReceive()
-{
-  CommandHandler.handleWiFiReceive();
-}
-
-void CommandHandlerClass::handleWiFiReceive()
-{
-  xSemaphoreGiveFromISR(_updateGpio0PinSemaphore, NULL);
 }
 
 CommandHandlerClass CommandHandler;

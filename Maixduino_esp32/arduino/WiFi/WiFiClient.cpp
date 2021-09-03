@@ -49,10 +49,11 @@ int WiFiClient::connect(const char* host, uint16_t port)
 
 int WiFiClient::connect(/*IPAddress*/uint32_t ip, uint16_t port)
 {
-  _socket = lwip_socket(AF_INET, SOCK_STREAM, 0);
+  _socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 
   if (_socket < 0) {
     _socket = -1;
+    printf("WiFiClient::connect fail _socket=%i\n", _socket);
     return 0;
   }
 
@@ -63,15 +64,16 @@ int WiFiClient::connect(/*IPAddress*/uint32_t ip, uint16_t port)
   addr.sin_addr.s_addr = (uint32_t)ip;
   addr.sin_port = htons(port);
 
-  if (lwip_connect(_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
-    lwip_close(_socket);
+  if (::connect(_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+    close(_socket);
     _socket = -1;
+    printf("WiFiClient::connect fail _socket=%i\n", _socket);
     return 0;
   }
 
   int nonBlocking = 1;
-  lwip_ioctl(_socket, FIONBIO, &nonBlocking);
-
+  ioctl(_socket, FIONBIO, &nonBlocking);
+  printf("WiFiClient::connect ok _socket=%i\n", _socket);
   return 1;
 }
 
@@ -82,15 +84,18 @@ size_t WiFiClient::write(uint8_t b)
 
 size_t WiFiClient::write(const uint8_t *buf, size_t size)
 {
+  printf("WiFiClient::write size=%i _socket=%i\n", (int)size, _socket);
   if (_socket == -1) {
     return 0;
   }
 
-  int result = lwip_send(_socket, (void*)buf, size, MSG_DONTWAIT);
+  int result = send(_socket, (void*)buf, size, MSG_DONTWAIT);
+  printf("WiFiClient::write result=%i\n", result);
 
   if (result < 0) {
-    lwip_close(_socket);
+    close(_socket);
     _socket = -1;
+    printf("WiFiClient::write _socket=-1\n");
     return 0;
   }
 
@@ -105,8 +110,9 @@ int WiFiClient::available()
 
   int result = 0;
 
-  if (lwip_ioctl(_socket, FIONREAD, &result) < 0) {
-    lwip_close(_socket);
+  if (ioctl(_socket, FIONREAD, &result) < 0) {
+    printf("WiFiClient::available _socket=%i errno=%i\n", _socket, (int)errno);
+    close(_socket);
     _socket = -1;
     return 0;
   }
@@ -131,11 +137,12 @@ int WiFiClient::read(uint8_t* buf, size_t size)
     return -1;
   }
 
-  int result = lwip_recv(_socket, buf, size, MSG_DONTWAIT);
+  int result = recv(_socket, buf, size, MSG_DONTWAIT);
 
   if (result <= 0 && errno != EWOULDBLOCK) {
-    lwip_close(_socket);
+    close(_socket);
     _socket = -1;
+    printf("WiFiClient::read _socket=-1\n");
     return 0;
   }
 
@@ -152,8 +159,9 @@ int WiFiClient::peek()
 
   if (recv(_socket, &b, sizeof(b), MSG_PEEK | MSG_DONTWAIT) <= 0) {
     if (errno != EWOULDBLOCK) {
-      lwip_close(_socket);
+      close(_socket);
       _socket = -1;
+      printf("WiFiClient::peek _socket=-1\n");
     }
 
     return -1;
@@ -169,8 +177,9 @@ void WiFiClient::flush()
 void WiFiClient::stop()
 {
   if (_socket != -1) {
-    lwip_close(_socket);
+    close(_socket);
     _socket = -1;
+    printf("WiFiClient::stop _socket=-1\n");
   }
 }
 

@@ -50,16 +50,9 @@ class WiFiClass
 public:
   WiFiClass();
 
-  uint8_t begin(const char* ssid);
-  uint8_t begin(const char* ssid, uint8_t key_idx, const char* key);
-  uint8_t begin(const char* ssid, const char* key);
-
-  uint8_t beginAP(const char *ssid, uint8_t channel);
-  uint8_t beginAP(const char *ssid, uint8_t key_idx, const char* key, uint8_t channel);
-  uint8_t beginAP(const char *ssid, const char* key, uint8_t channel);
-
-
-  void config(/*IPAddress*/uint32_t local_ip, /*IPAddress*/uint32_t gateway, /*IPAddress*/uint32_t subnet);
+  void init();
+  uint8_t begin(const char* ssid, const char* passw);
+  uint8_t beginAP(const char *ssid, const char* passw, uint8_t channel);
 
   void setDNS(/*IPAddress*/uint32_t dns_server1, /*IPAddress*/uint32_t dns_server2);
 
@@ -70,6 +63,7 @@ public:
 
   uint8_t* macAddress(uint8_t* mac);
 
+  void updateIpInfo();
   uint32_t localIP();
   uint32_t subnetMask();
   uint32_t gatewayIP();
@@ -95,34 +89,30 @@ public:
   void lowPowerMode();
   void noLowPowerMode();
 
-  void onReceive(void(*)(void));
-
 private:
-  void init();
-
-  static esp_err_t systemEventHandler(void* ctx, system_event_t* event);
-  void handleSystemEvent(system_event_t* event);
-
-  static err_t staNetifInputHandler(struct pbuf* p, struct netif* inp);
-  static err_t apNetifInputHandler(struct pbuf* p, struct netif* inp);
-  err_t handleStaNetifInput(struct pbuf* p, struct netif* inp);
-  err_t handleApNetifInput(struct pbuf* p, struct netif* inp);
+  static void scan_done_handler(void* arg, esp_event_base_t event_base,
+                              int32_t event_id, void* event_data);
+  static void got_ip_handler(void* arg, esp_event_base_t event_base,
+                           int32_t event_id, void* event_data);
+  static void disconnect_handler(void* arg, esp_event_base_t event_base,
+                               int32_t event_id, void* event_data);
 
 private:
   bool _initialized;
   volatile uint8_t _status;
-  EventGroupHandle_t _eventGroup;
+  EventGroupHandle_t _wifi_event_group;
   wifi_interface_t _interface;
 
   wifi_ap_record_t _scanResults[MAX_SCAN_RESULTS];
   wifi_ap_record_t _apRecord;
-  tcpip_adapter_ip_info_t _ipInfo;
+  esp_netif_ip_info_t _ipInfo;
   uint32_t _dnsServers[2];
 
   netif_input_fn _staNetifInput;
   netif_input_fn _apNetifInput;
 
-  void (*_onReceiveCallback)(void);
+  esp_netif_t *netif_ap = NULL;
+  esp_netif_t *netif_sta = NULL;
 };
 
 extern WiFiClass WiFi;

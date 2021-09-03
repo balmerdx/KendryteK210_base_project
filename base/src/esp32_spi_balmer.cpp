@@ -125,8 +125,17 @@ bool esp32_transfer(uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer, size_
     if(debug)
     {
         printf("receive ");
-        for(size_t i=0;i<rx_len;i++)
+        size_t max_bytes_print = 16;
+        size_t bytes_to_print = rx_len;
+        if(rx_len > max_bytes_print)
+            bytes_to_print = max_bytes_print;
+
+        for(size_t i=0;i<bytes_to_print;i++)
             printf("%02x", (int)rx_buffer[i]);
+
+        if(rx_len > max_bytes_print)
+            printf(" total len=%lu", rx_len);
+
         printf("\n");
     }
 
@@ -227,7 +236,8 @@ bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_
 #if ESP32_SPI_DEBUG
     printf("Connect to AP--> ssid: %s password:%s\r\n", ssid, password);
 #endif
-    esp32_spi_wifi_set_ssid_and_pass(ssid, password);
+    if(!esp32_spi_wifi_set_ssid_and_pass(ssid, password))
+        return false;
 
     int8_t stat = -1;
 

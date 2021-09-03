@@ -16,6 +16,8 @@
         "memory": "cpp",
         "iostream": "cpp",
         "typeinfo": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "cstddef": "cpp",
+        "limits": "cpp"
     }
 }

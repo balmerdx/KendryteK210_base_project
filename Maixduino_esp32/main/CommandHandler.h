@@ -30,14 +30,6 @@ public:
   int handle(const uint8_t command[], uint8_t response[]);
 
 private:
-  static void gpio0Updater(void*);
-  void updateGpio0Pin();
-
-  static void onWiFiReceive();
-  void handleWiFiReceive();
-
-private:
-  SemaphoreHandle_t _updateGpio0PinSemaphore;
 };
 
 extern CommandHandlerClass CommandHandler;

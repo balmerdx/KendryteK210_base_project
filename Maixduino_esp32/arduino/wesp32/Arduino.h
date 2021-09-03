@@ -26,27 +26,8 @@
 #include <string.h>
 #include <math.h>
 
-#ifdef __cplusplus
-extern "C"{
-#endif // __cplusplus
-
-// system functions
-void init(void);
-
-// sketch
-void setup(void);
-void loop(void);
-
-#ifdef __cplusplus
-} // extern "C"
-#endif
-
-#ifdef __cplusplus
-  #include "WMath.h"
-#endif
 #include "delay.h"
 
 #include "wiring_digital.h"
-#include "wiring_analog.h"
 
 #endif // ARDUINO_H

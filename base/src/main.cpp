@@ -98,6 +98,7 @@ static void test_socket()
             uint16_t len1 = 0;            
             uint8_t tmp_buf[LEN] = {0};
             do{
+                int max_retry = 10;
                 while(1)
                 {
                     len = esp32_spi_socket_available(socket);
@@ -105,16 +106,21 @@ static void test_socket()
                     if(len>0)
                         break;
                     msleep(300);
+                    max_retry--;
+                    if(max_retry<0)
+                        break;
                 }
+                if(max_retry<0)
+                    break;
 
                 len1 = esp32_spi_socket_read(socket, &tmp_buf[0], len > LEN ? LEN:len);
-                strncat((char*)read_buf, (char*)tmp_buf, len1);
+                //strncat((char*)read_buf, (char*)tmp_buf, len1);
                 total += len1;
                 connected = esp32_spi_socket_connected(socket);
                 msleep(65);
            }while(len > LEN && connected);
 
-            printf("total data read len: %d\r\n", total);
+           printf("total data read len: %d\r\n", total);
         }
     }
 

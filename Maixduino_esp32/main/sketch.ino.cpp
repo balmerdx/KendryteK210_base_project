@@ -19,13 +19,15 @@
 //balmer temp
 #define CONFIG_CONSOLE_UART_NUM 0
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <nvs_flash.h>
+
 #include <esp32/rom/uart.h>
 
 #include <driver/periph_ctrl.h>
 #include <driver/uart.h>
 #include <driver/adc.h>
-
-#include <esp_bt.h>
 
 #include <Arduino.h>
 
@@ -57,9 +59,7 @@ void setDebug(int d) {
 }
 
 void setupWiFi();
-void setupBluetooth();
 
-void setupADC();
 void setup() {
   setDebug(debug);
 
@@ -68,54 +68,14 @@ void setup() {
   pinMode(21, INPUT);
 
   pinMode(5, INPUT);
-  if (digitalRead(5) == LOW) {
-    if (debug)  ets_printf("*** BLUETOOTH ON\n");
+  if (debug)  ets_printf("*** WIFI ON\n");
 
-    setupBluetooth();
-  } else {
-    if (debug)  ets_printf("*** WIFI ON\n");
-
-    setupWiFi();
-  }
-  setupADC();
+  setupWiFi();
 }
 
 #define UNO_WIFI_REV2
 
-void setupBluetooth() {
-  periph_module_enable(PERIPH_UART1_MODULE);
-  periph_module_enable(PERIPH_UHCI0_MODULE);
-
-#ifdef UNO_WIFI_REV2
-  uart_set_pin(UART_NUM_1, 1, 3, 33, 0); // TX, RX, RTS, CTS
-#else
-  uart_set_pin(UART_NUM_1, 23, 12, 18, 5);
-#endif
-  uart_set_hw_flow_ctrl(UART_NUM_1, UART_HW_FLOWCTRL_CTS_RTS, 5);
-
-  esp_bt_controller_config_t btControllerConfig = BT_CONTROLLER_INIT_CONFIG_DEFAULT(); 
-
-  btControllerConfig.hci_uart_no = UART_NUM_1;
-#ifdef UNO_WIFI_REV2
-  btControllerConfig.hci_uart_baudrate = 115200;
-#else
-  btControllerConfig.hci_uart_baudrate = 912600;
-#endif
-
-  esp_bt_controller_init(&btControllerConfig);
-  while (esp_bt_controller_get_status() == ESP_BT_CONTROLLER_STATUS_IDLE);
-  esp_bt_controller_enable(ESP_BT_MODE_BLE);
-  esp_bt_sleep_enable();
-
-  vTaskSuspend(NULL);
-
-  while (1) {
-    vTaskDelay(portMAX_DELAY);
-  }
-}
-
 void setupWiFi() {
-  esp_bt_controller_mem_release(ESP_BT_MODE_BTDM);
   if (debug)  ets_printf("*** SPIS\n");
   SPIS.begin();
 
@@ -173,3 +133,28 @@ void setupADC(){
   }
 }
 
+static void init_nvs_flash()
+{
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK( ret );
+
+}
+
+void arduino_main(void*) {
+  setup();
+  while (1) {
+    loop();
+  }
+}
+
+extern "C" {
+  void app_main() {
+    init_nvs_flash();
+    WiFi.init();
+    xTaskCreatePinnedToCore(arduino_main, "arduino", 8192, NULL, 1, NULL, 1);
+  }
+}
