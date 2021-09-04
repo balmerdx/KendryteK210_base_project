@@ -158,10 +158,8 @@ int setApPassPhrase(const uint8_t command[], uint8_t response[])
 
 int setDebug(const uint8_t command[], uint8_t response[])
 {
-  const uint32_t* cmd32 = (const uint32_t*)command;
-  uint32_t* resp32 = (uint32_t*)response;
-  setDebug(*cmd32>>24);
-  *resp32 = *cmd32;
+  setDebug(command[1]);
+  *(uint32_t*)response = 1;
   return CESP_RESP_SET_DEBUG;
 }
 
@@ -676,6 +674,8 @@ int readSocketData(const uint8_t command[], uint8_t response[])
 
   if(length > SPI_BUFFER_LEN-4)
     length = SPI_BUFFER_LEN-4;
+  if(debug)
+    printf("readSocketData socket=%i length=%i socketTypes=%i\n", (int)socket, (int)length, (int)socketTypes[socket]);
 
   if (socketTypes[socket] == 0x00) {
     read = tcpClients[socket].read(out, length);
@@ -688,7 +688,7 @@ int readSocketData(const uint8_t command[], uint8_t response[])
   if (read < 0)
     read = 0;
   *(uint32_t*)response = read;
-  return (4 + read);
+  return (4 + length);
 }
 
 int insertDataBuf(const uint8_t command[], uint8_t response[])

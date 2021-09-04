@@ -153,22 +153,27 @@ bool esp32_transfer_no_param(uint32_t command, size_t rx_len)
     return esp32_transfer(tx_buffer, 4, rx_buffer, rx_len);
 }
 
-bool esp32_test_invert(uint8_t* data, size_t len)
+int esp32_test_invert(uint8_t* data, size_t len)
 {
     if(len&3)
         return false;
     *(uint32_t*)tx_buffer = (len<<16)|CESP_INVERT_BYTES;
     memcpy(tx_buffer+4, data, len);
-    esp32_transfer(tx_buffer, len+4, rx_buffer, len);
+    if(!esp32_transfer(tx_buffer, len+4, rx_buffer, len))
+        return -1;
 
     bool match = true;
     for(size_t i=0; i<len; i++)
     if((data[i]^0xFF)!=rx_buffer[i])
     {
-        match = false;
-        break;        
+        return (int)i;
     }
-    return match;
+    return (int)len;
+}
+
+void esp32_set_debug(bool enable)
+{
+    esp32_transfer_no_param(CESP_SET_DEBUG|(enable?0x100:0), CESP_RESP_SET_DEBUG);
 }
 
 const char* esp32_spi_firmware_version()
@@ -494,7 +499,10 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size)
     memcpy(tx_buffer+2, &size, 2);
 
     if(!esp32_transfer(tx_buffer, 4, rx_buffer, size+4))
+    {
+        printf("esp32_spi_socket_read fail\n");
         return 0;
+    }
     memcpy(buff, rx_buffer+4, size);
     return *(uint16_t*)rx_buffer;
 }

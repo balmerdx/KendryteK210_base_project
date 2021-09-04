@@ -9,10 +9,6 @@
 #include "esp32_spi_balmer.h"
 #include "wifi_passw.h"
 
-const size_t buffer_size = 8;
-uint8_t send_buffer[buffer_size];
-uint8_t receive_buffer[buffer_size];
-
 static void scan_WiFi()
 {
     const esp32_spi_aps_list_t* scan = esp32_spi_scan_networks();
@@ -26,13 +22,35 @@ static void scan_WiFi()
 
 static void test_invert()
 {
-    for(int i=0; i<sizeof(send_buffer); i++)
-        send_buffer[i] = i+10;
+    const size_t buffer_size = 4000;
+    uint8_t send_buffer[buffer_size];
 
-    if(esp32_test_invert(send_buffer, sizeof(send_buffer)))
-        printf("esp32_test_invert ok\n");
-    else
-        printf("esp32_test_invert fail\n");
+    esp32_set_debug(true);
+    bool break_next = false;
+    for(int size=4; size<=buffer_size; size*=2)
+    {
+        for(int i=0; i<size; i++)
+            send_buffer[i] = i+10;
+
+        int result = esp32_test_invert(send_buffer, size);
+        printf("esp32_test_invert %i\n", size);
+        if(result!=size)
+        {
+            printf("esp32_test_invert fail %i!=%i\n", size, result);
+            while(1);
+        }
+
+        if(break_next)
+            break;
+
+        if(size*2>buffer_size)
+        {
+            size = buffer_size/2;
+            break_next = true;
+        }
+    }
+
+    esp32_set_debug(false);
 }
 
 static bool connect_AP(const char* ssid, const char* pass)
@@ -190,11 +208,11 @@ static void test_download_speed_iperf()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("test_download_speed_iperf status: %s\r\n", connected?"connected":"disconnected");
-    #define LEN 4000
+    #define LEN 2000
 
     if(connected)
     {
-        const char* buf = "GET /MAIX/MaixPy/assets/Alice.jpg HTTP/1.1\r\nHost: dl.sipeed.com\r\ncache-control: no-cache\r\n\r\n";
+        const char* buf = "B";
         uint32_t len = 0;
 
         len = esp32_spi_socket_write(socket, (uint8_t*)buf, strlen(buf)+1);
@@ -274,6 +292,61 @@ static void test_upload_speed_iperf()
     printf("close socket status: %i\r\n", close_status);
 }
 
+static void test_download_speed_short()
+{
+    const char* site = "192.168.1.48";
+    uint8_t socket = connect_server_port_tcp(site, 5001);
+    if(socket == 0xff)
+    {
+        printf("Cannot connect to server: %s", site);
+        return;
+    }
+
+    bool connected = esp32_spi_socket_connected(socket);
+    printf("test_download_speed_iperf status: %s\r\n", connected?"connected":"disconnected");
+    #define LEN 4000
+
+    if(connected)
+    {
+        const char* buf = "GET /MAIX/MaixPy/assets/Alice.jpg HTTP/1.1\r\nHost: dl.sipeed.com\r\ncache-control: no-cache\r\n\r\n";
+        uint32_t len = 0;
+
+        len = esp32_spi_socket_write(socket, (uint8_t*)buf, strlen(buf)+1);
+        printf("esp32_spi_socket_write return: %d\r\n", len);
+
+        int total = 0;
+        
+        {
+            uint16_t len_rx = 0;            
+            uint8_t tmp_buf[LEN] = {0};
+            uint64_t start_time_us = sysctl_get_time_us();
+            uint64_t end_time_us = sysctl_get_time_us();
+            do{
+                len_rx = esp32_spi_socket_read(socket, &tmp_buf[total], LEN-1-total);
+                //if(len_rx>0)
+                //    printf("len_rx=%i\n", (int)len_rx);
+                if(len_rx>0)
+                    end_time_us = sysctl_get_time_us();
+                total += len_rx;
+
+                if(total>0)
+                    break;
+                msleep(1);
+            }while(sysctl_get_time_us()-start_time_us<5000000);
+
+            float dt = (end_time_us-start_time_us)*1e-6f;
+            printf("total data read len: %d\r\n", total);
+            printf("total time: %f\r\n", dt);
+            printf("%.3f mbit/sec\n", (total*8/dt)*1e-6);
+            printf("message: %s\r\n", (const char*)tmp_buf);
+        }
+    }
+
+    int close_status = esp32_spi_socket_close(socket);
+    printf("close socket status: %i\r\n", close_status);
+}
+
+
 int main(void)
 {
     msleep(300);
@@ -292,9 +365,10 @@ int main(void)
     esp32_spi_wifi_set_ssid_and_pass(SSID, PASS);
     while(!connect_AP(SSID, PASS));
     test_connection();
+    //test_download_speed_short();
     //test_socket();
     test_download_speed_iperf();
-    test_upload_speed_iperf();
+    //test_upload_speed_iperf();
     //esp32_spi_reset();
 
     while(1)

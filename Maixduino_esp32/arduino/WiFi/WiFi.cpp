@@ -169,7 +169,6 @@ uint8_t WiFiClass::begin(const char* ssid, const char* passw)
   strlcpy((char*)wifiConfig.sta.ssid, ssid, sizeof(wifiConfig.sta.ssid));
   if(passw)
     strlcpy((char*)wifiConfig.sta.password, passw, sizeof(wifiConfig.sta.password));
-  printf("begin sta %s, %s", (char*)wifiConfig.sta.ssid, (char*)wifiConfig.sta.password);
 
   wifiConfig.sta.scan_method = WIFI_FAST_SCAN;
   _interface = WIFI_IF_STA;

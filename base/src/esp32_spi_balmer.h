@@ -38,7 +38,10 @@ void esp32_spi_init();
 
 esp32_wlan_enum_t esp32_spi_status();
 
-bool esp32_test_invert(uint8_t* data, size_t len);
+//Возвращает количество корректно инвертированных байтов
+//-1 - не удалось получить ответ
+int esp32_test_invert(uint8_t* data, size_t len);
+void esp32_set_debug(bool enable);
 
 const char* esp32_spi_firmware_version();
 float esp32_spi_get_temperature();
