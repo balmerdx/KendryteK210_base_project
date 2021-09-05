@@ -29,19 +29,13 @@
 
 #include <Arduino.h>
 
-typedef enum {
-  WL_NO_SHIELD = 255,
+enum ESP32_WL_STATUS
+{
   WL_IDLE_STATUS = 0,
-  WL_NO_SSID_AVAIL,
-  WL_SCAN_COMPLETED,
+  WL_CONNECTING,
   WL_CONNECTED,
-  WL_CONNECT_FAILED,
-  WL_CONNECTION_LOST,
   WL_DISCONNECTED,
-  WL_AP_LISTENING,
-  WL_AP_CONNECTED,
-  WL_AP_FAILED,
-} wl_status_t;
+};
 
 #define MAX_SCAN_RESULTS 10
 
@@ -54,9 +48,7 @@ public:
   uint8_t begin(const char* ssid, const char* passw);
   uint8_t beginAP(const char *ssid, const char* passw, uint8_t channel);
 
-  void setDNS(/*IPAddress*/uint32_t dns_server1, /*IPAddress*/uint32_t dns_server2);
-
-  void hostname(const char* name);
+  bool hostname(const char* name);
 
   void disconnect();
   void end();
@@ -71,7 +63,9 @@ public:
   int32_t RSSI();
   uint8_t encryptionType();
   uint8_t* BSSID(uint8_t* bssid);
-  int8_t scanNetworks();
+  //results in scanResultsCount, SSID(i), RSSI(i) etc...
+  void scanNetworks();
+  uint8_t scanResultsCount() { return _scanResultsCount; }
   char* SSID(uint8_t pos);
   int8_t RSSI(uint8_t pos);
   uint8_t encryptionType(uint8_t pos);
@@ -99,10 +93,11 @@ private:
 
 private:
   bool _initialized;
-  volatile uint8_t _status;
+  volatile ESP32_WL_STATUS _status;
   EventGroupHandle_t _wifi_event_group;
   wifi_interface_t _interface;
 
+  uint16_t _scanResultsCount = 0;
   wifi_ap_record_t _scanResults[MAX_SCAN_RESULTS];
   wifi_ap_record_t _apRecord;
   esp_netif_ip_info_t _ipInfo;

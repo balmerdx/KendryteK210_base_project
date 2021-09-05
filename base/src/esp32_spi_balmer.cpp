@@ -162,7 +162,6 @@ int esp32_test_invert(uint8_t* data, size_t len)
     if(!esp32_transfer(tx_buffer, len+4, rx_buffer, len))
         return -1;
 
-    bool match = true;
     for(size_t i=0; i<len; i++)
     if((data[i]^0xFF)!=rx_buffer[i])
     {
@@ -212,7 +211,7 @@ const esp32_spi_aps_list_t* esp32_spi_scan_networks()
 esp32_wlan_enum_t esp32_spi_status()
 {
     if(!esp32_transfer_no_param(CESP_GET_CONN_STATUS, CESP_RESP_GET_CONN_STATUS))
-        return WL_NO_MODULE;
+        return WL_IDLE_STATUS;
     return (esp32_wlan_enum_t)rx_buffer[1];
 }
 
@@ -272,19 +271,10 @@ bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_
     }
     stat = esp32_spi_status();
 
-    if (stat == WL_CONNECT_FAILED || stat == WL_CONNECTION_LOST || stat == WL_DISCONNECTED)
+    if (stat == WL_DISCONNECTED)
     {
 #if ESP32_SPI_DEBUG
         printf("Failed to connect to ssid: %s\r\n", ssid);
-#endif
-
-        return false;
-    }
-
-    if (stat == WL_NO_SSID_AVAIL)
-    {
-#if ESP32_SPI_DEBUG
-        printf("No such ssid: %s\r\n", ssid);
 #endif
 
         return false;
@@ -388,16 +378,9 @@ const char* wlan_enum_to_str(esp32_wlan_enum_t x)
     switch (x)
     {
         ENUM_TO_STR(WL_IDLE_STATUS);
-        ENUM_TO_STR(WL_NO_SSID_AVAIL);
-        ENUM_TO_STR(WL_SCAN_COMPLETED);
+        ENUM_TO_STR(WL_CONNECTING);
         ENUM_TO_STR(WL_CONNECTED);
-        ENUM_TO_STR(WL_CONNECT_FAILED);
-        ENUM_TO_STR(WL_CONNECTION_LOST);
         ENUM_TO_STR(WL_DISCONNECTED);
-        ENUM_TO_STR(WL_AP_LISTENING);
-        ENUM_TO_STR(WL_AP_CONNECTED);
-        ENUM_TO_STR(WL_AP_FAILED);
-        ENUM_TO_STR(WL_NO_MODULE);
     }
     return "unknown";
 }

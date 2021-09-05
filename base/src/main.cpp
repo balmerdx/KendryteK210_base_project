@@ -90,7 +90,7 @@ static void test_socket()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("open socket status: %s\r\n", connected?"connected":"disconnected");
-    #define LEN 1024 // its max buffer length with which esp32 can read fast enough from internet
+    const uint32_t LEN = 1024; // its max buffer length with which esp32 can read fast enough from internet
     uint8_t read_buf[LEN];
 
     if(connected)
@@ -159,7 +159,7 @@ static void test_download_speed()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("open socket status: %s\r\n", connected?"connected":"disconnected");
-    #define LEN 1024 // its max buffer length with which esp32 can read fast enough from internet
+    const uint32_t LEN = 1024; // its max buffer length with which esp32 can read fast enough from internet
 
     if(connected)
     {
@@ -208,7 +208,7 @@ static void test_download_speed_iperf()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("test_download_speed_iperf status: %s\r\n", connected?"connected":"disconnected");
-    #define LEN 2000
+    const uint32_t LEN = 4000;
 
     if(connected)
     {
@@ -232,7 +232,10 @@ static void test_download_speed_iperf()
                 if(len_rx>0)
                     end_time_us = sysctl_get_time_us();
                 total += len_rx;
-                msleep(1);
+                if(len_rx < LEN)
+                    msleep(4);
+                else
+                    usleep(500);
             }while(sysctl_get_time_us()-start_time_us<5000000);
 
             float dt = (end_time_us-start_time_us)*1e-6f;
@@ -258,7 +261,7 @@ static void test_upload_speed_iperf()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("test_upload_speed_iperf status: %s\r\n", connected?"connected":"disconnected");
-    #define LEN 4000
+    const uint32_t LEN = 4000;
 
     if(connected)
     {
@@ -362,7 +365,6 @@ int main(void)
     printf("temperature=%f\n", esp32_spi_get_temperature());
     scan_WiFi();
 
-    esp32_spi_wifi_set_ssid_and_pass(SSID, PASS);
     while(!connect_AP(SSID, PASS));
     test_connection();
     //test_download_speed_short();

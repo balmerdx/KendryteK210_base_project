@@ -111,12 +111,6 @@ int WiFiClient::available()
 
 int WiFiClient::read(uint8_t* buf, size_t size)
 {
-  /*
-  if (!available()) {
-    return -1;
-  }
-  */
-
   int result = recv(_socket, buf, size, MSG_DONTWAIT);
 
   if (result <= 0 && errno != EWOULDBLOCK) {
@@ -142,10 +136,6 @@ int WiFiClient::peek()
   }
 
   return b;
-}
-
-void WiFiClient::flush()
-{
 }
 
 void WiFiClient::stop()

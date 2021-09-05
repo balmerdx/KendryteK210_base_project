@@ -16,22 +16,15 @@
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
-#ifndef WIFICLIENT_H
-#define WIFICLIENT_H
-
+#pragma once
 #include <Arduino.h>
-// #include <Client.h>
-// #include <IPAddress.h>
 
 class WiFiServer;
 
-class WiFiClient /*: public Client*/ {
+class WiFiClient {
 
 public:
   WiFiClient();
-
-  uint8_t status();
 
   virtual int connect(/*IPAddress*/uint32_t ip, uint16_t port);
   virtual int connect(const char* host, uint16_t port);
@@ -39,7 +32,6 @@ public:
   virtual int available();
   virtual int read(uint8_t *buf, size_t size);
   virtual int peek();
-  virtual void flush();
   virtual void stop();
   virtual uint8_t connected();
   virtual operator bool();
@@ -47,8 +39,6 @@ public:
 
   virtual /*IPAddress*/uint32_t remoteIP();
   virtual uint16_t remotePort();
-
-  // using Print::write;
 
 protected:
   friend class WiFiServer;
@@ -59,4 +49,3 @@ private:
   int _socket;
 };
 
-#endif // WIFICLIENT_H

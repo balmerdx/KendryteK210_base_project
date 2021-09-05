@@ -102,23 +102,12 @@ WiFiClient WiFiServer::available(uint8_t* status)
         _spawnedSockets[i] = -1;
       } else if (c.available()) {
         result = _spawnedSockets[i];
-
         break;
       }
     }
   }
 
   return WiFiClient(result);
-}
-
-uint8_t WiFiServer::status() {
-  // Deprecated.
-  return 0;
-}
-
-size_t WiFiServer::write(uint8_t b)
-{
-  return write(&b, 1);
 }
 
 size_t WiFiServer::write(const uint8_t *buffer, size_t size)

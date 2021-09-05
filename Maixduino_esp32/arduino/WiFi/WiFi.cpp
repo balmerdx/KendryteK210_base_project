@@ -50,7 +50,7 @@ const int SCAN_DONE_BIT = BIT2;
 
 WiFiClass::WiFiClass() :
   _initialized(false),
-  _status(WL_NO_SHIELD),
+  _status(WL_IDLE_STATUS),
   _interface(WIFI_IF_STA)
 {
   _wifi_event_group = xEventGroupCreate();
@@ -181,9 +181,10 @@ uint8_t WiFiClass::begin(const char* ssid, const char* passw)
   }
 
   esp_wifi_set_mode(WIFI_MODE_STA);
-  _status = WL_NO_SSID_AVAIL;
+  _status = WL_CONNECTING;
   if (esp_wifi_set_config(WIFI_IF_STA, &wifiConfig) != ESP_OK) {
-    _status = WL_CONNECT_FAILED;
+    _status = WL_DISCONNECTED;
+    return _status;
   }
 
   esp_wifi_connect();
@@ -204,14 +205,14 @@ uint8_t WiFiClass::beginAP(const char *ssid, const char* passw, uint8_t channel)
   wifiConfig.ap.authmode = has_passw?WIFI_AUTH_WPA_WPA2_PSK:WIFI_AUTH_OPEN;//or  WIFI_AUTH_WEP
   wifiConfig.ap.max_connection = 4;
 
-  _status = WL_NO_SSID_AVAIL;
+  _status = WL_CONNECTING;
 
   _interface = WIFI_IF_AP;
 
   esp_wifi_set_mode(WIFI_MODE_AP);
 
   if (esp_wifi_set_config(WIFI_IF_AP, &wifiConfig) != ESP_OK) {
-    _status = WL_AP_FAILED;
+    _status = WL_DISCONNECTED;
   } else {
     xEventGroupWaitBits(_wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
   }
@@ -219,28 +220,9 @@ uint8_t WiFiClass::beginAP(const char *ssid, const char* passw, uint8_t channel)
   return _status;
 }
 
-void WiFiClass::setDNS(/*IPAddress*/uint32_t dns_server1, /*IPAddress*/uint32_t dns_server2)
+bool WiFiClass::hostname(const char* name)
 {
-  ip_addr_t d;
-  d.type = IPADDR_TYPE_V4;
-
-  _dnsServers[0] = dns_server1;
-  _dnsServers[1] = dns_server2;
-
-  if (dns_server1) {
-    d.u_addr.ip4.addr = static_cast<uint32_t>(dns_server1);
-    dns_setserver(0, &d);
-  }
-
-  if (dns_server2) {
-    d.u_addr.ip4.addr = static_cast<uint32_t>(dns_server2);
-    dns_setserver(1, &d);
-  }
-}
-
-void WiFiClass::hostname(const char* name)
-{
-  tcpip_adapter_set_hostname(_interface == WIFI_IF_AP ? TCPIP_ADAPTER_IF_AP : TCPIP_ADAPTER_IF_STA, name);
+  return esp_netif_set_hostname(_interface == WIFI_IF_AP?netif_ap:netif_sta, name)==ESP_OK;
 }
 
 void WiFiClass::disconnect()
@@ -336,7 +318,7 @@ uint8_t* WiFiClass::BSSID(uint8_t* bssid)
   }
 }
 
-int8_t WiFiClass::scanNetworks()
+void WiFiClass::scanNetworks()
 {
   ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
 
@@ -352,10 +334,8 @@ int8_t WiFiClass::scanNetworks()
 
   xEventGroupClearBits(_wifi_event_group, SCAN_DONE_BIT);
 
-  if (esp_wifi_scan_start(&config, false) != ESP_OK) {
-    _status = WL_NO_SSID_AVAIL;
-    return 0;
-  }
+  if (esp_wifi_scan_start(&config, false) != ESP_OK)
+    return;
 
   xEventGroupWaitBits(_wifi_event_group, SCAN_DONE_BIT, false, true, portMAX_DELAY);
 
@@ -366,10 +346,7 @@ int8_t WiFiClass::scanNetworks()
     numNetworks = MAX_SCAN_RESULTS;
 
   esp_wifi_scan_get_ap_records(&numNetworks, _scanResults);
-
-  _status = WL_SCAN_COMPLETED;
-
-  return numNetworks;
+  _scanResultsCount = numNetworks;
 }
 
 char* WiFiClass::SSID(uint8_t pos)

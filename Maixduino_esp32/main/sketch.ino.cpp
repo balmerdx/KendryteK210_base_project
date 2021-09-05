@@ -86,11 +86,6 @@ void setup() {
 void setupWiFi() {
   if (debug)  ets_printf("*** SPIS\n");
   SPIS.begin();
-
-  if (WiFi.status() == WL_NO_SHIELD) {
-    if (debug)  ets_printf("*** NOSHIELD\n");
-    while (1); // no shield
-  }
   
   commandBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);
   responseBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);

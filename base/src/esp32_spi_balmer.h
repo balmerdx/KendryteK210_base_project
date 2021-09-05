@@ -10,18 +10,10 @@ typedef enum {
 
 typedef enum
 {
-    WL_IDLE_STATUS              = (0),
-    WL_NO_SSID_AVAIL            = (1),
-    WL_SCAN_COMPLETED           = (2),
-    WL_CONNECTED                = (3),
-    WL_CONNECT_FAILED           = (4),
-    WL_CONNECTION_LOST          = (5),
-    WL_DISCONNECTED             = (6),
-    WL_AP_LISTENING             = (7),
-    WL_AP_CONNECTED             = (8),
-    WL_AP_FAILED                = (9),
-    //
-    WL_NO_MODULE                = (0xFF)
+    WL_IDLE_STATUS = 0,
+    WL_CONNECTING,
+    WL_CONNECTED,
+    WL_DISCONNECTED,
 }esp32_wlan_enum_t;
 
 typedef enum
@@ -30,6 +22,19 @@ typedef enum
     UDP_MODE                    = (1),
     TLS_MODE                    = (2)
 }esp32_socket_mode_enum_t;
+
+typedef struct __packed
+{
+    int8_t rssi;
+    uint8_t encr;
+    uint8_t ssid[33];
+} esp32_spi_ap_t;
+
+typedef struct __packed
+{
+    uint8_t num;
+    esp32_spi_ap_t aps[0];
+} esp32_spi_aps_list_t;
 
 
 size_t esp32_round_up4(size_t s);
@@ -45,20 +50,6 @@ void esp32_set_debug(bool enable);
 
 const char* esp32_spi_firmware_version();
 float esp32_spi_get_temperature();
-
-typedef struct __packed
-{
-    int8_t rssi;
-    uint8_t encr;
-    uint8_t ssid[33];
-} esp32_spi_ap_t;
-
-typedef struct __packed
-{
-    uint8_t num;
-    esp32_spi_ap_t aps[0];
-} esp32_spi_aps_list_t;
-
 
 const esp32_spi_aps_list_t* esp32_spi_scan_networks();
 

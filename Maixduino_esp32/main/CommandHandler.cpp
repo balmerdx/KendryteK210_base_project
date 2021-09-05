@@ -81,37 +81,11 @@ int setSsidAndPass(const uint8_t command[], uint8_t response[])
   return CESP_RESP_SET_SSID_AND_PASS;
 }
 
-int setDNSconfig(const uint8_t command[], uint8_t response[])
-{
-  uint32_t dns1;
-  uint32_t dns2;
-
-  memcpy(&dns1, &command[6], sizeof(dns1));
-  memcpy(&dns2, &command[11], sizeof(dns2));
-
-  WiFi.setDNS(dns1, dns2);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = 1;
-
-  return 6;
-}
-
 int setHostname(const uint8_t command[], uint8_t response[])
 {
-  char hostname[255 + 1];
-
-  memset(hostname, 0x00, sizeof(hostname));
-  memcpy(hostname, &command[4], command[3]);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = 1;
-
-  WiFi.hostname(hostname);
-
-  return 6;
+  const char* hostname = (const char*)(command + 4);
+  *(uint32_t*)response = WiFi.hostname(hostname)?1:0;
+  return 4;
 }
 
 int setPowerMode(const uint8_t command[], uint8_t response[])
@@ -146,12 +120,7 @@ int setApPassPhrase(const uint8_t command[], uint8_t response[])
 
   response[2] = 1; // number of parameters
   response[3] = 1; // parameter 1 length
-
-  if (WiFi.beginAP(ssid, pass, channel) != WL_AP_FAILED) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
+  response[4] = (WiFi.beginAP(ssid, pass, channel) == WL_CONNECTING)?1:0;
 
   return 6;
 }
@@ -270,13 +239,12 @@ int getCurrEnct(const uint8_t command[], uint8_t response[])
   return 6;
 }
 
-static int8_t numNetworks = 0;
 int scanNetworks(const uint8_t command[], uint8_t response[])
 {
-  numNetworks = WiFi.scanNetworks();
+  WiFi.scanNetworks();
 
   response[0] = CESP_SCAN_NETWORKS;
-  response[1] = numNetworks;
+  response[1] = WiFi.scanResultsCount();
   response[2] = 0;
   response[3] = 0;
 
@@ -286,6 +254,7 @@ int scanNetworks(const uint8_t command[], uint8_t response[])
 int scanNetworksResult(const uint8_t command[], uint8_t response[])
 {
   int responseLength = 0;
+  uint8_t numNetworks = WiFi.scanResultsCount();
   response[responseLength++] = numNetworks;
 
   for (int i = 0; i < numNetworks; i++) {
@@ -889,7 +858,7 @@ const CommandHandlerType commandHandlers[] =
   //0123
   disconnectWiFi, setSsidAndPass, scanNetworks, scanNetworksResult,
   //4567
-  setApPassPhrase, setDNSconfig, setHostname, setPowerMode,
+  setApPassPhrase, NULL, setHostname, setPowerMode,
   //89ab
   NULL, NULL, NULL, NULL,
   //cdef
