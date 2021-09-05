@@ -78,7 +78,7 @@ public:
 
   int ping(/*IPAddress*/uint32_t host, uint8_t ttl);
 
-  unsigned long getTime();
+  time_t getTime();
 
   void lowPowerMode();
   void noLowPowerMode();

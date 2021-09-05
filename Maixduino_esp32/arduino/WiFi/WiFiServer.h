@@ -16,9 +16,7 @@
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-
-#ifndef WIFISERVER_H
-#define WIFISERVER_H
+#pragma once
 
 #include <sdkconfig.h>
 
@@ -29,17 +27,14 @@ class WiFiClient;
 class WiFiServer {
 public:
   WiFiServer();
-  WiFiServer(uint16_t);
-  WiFiClient available(uint8_t* status = NULL);
+  WiFiServer(uint16_t port);
+  WiFiClient accept(uint8_t* status = NULL);
   void begin();
-  virtual size_t write(const uint8_t *buf, size_t size);
+  void stop();
 
   virtual operator bool();
 
 private:
   uint16_t _port;
   int _socket;
-  int _spawnedSockets[CONFIG_LWIP_MAX_SOCKETS];
 };
-
-#endif // WIFISERVER_H

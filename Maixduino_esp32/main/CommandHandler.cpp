@@ -44,11 +44,43 @@ char PK_BUFF[1700];
 bool setPSK = 0;
 
 #define MAX_SOCKETS CONFIG_LWIP_MAX_SOCKETS
-uint8_t socketTypes[MAX_SOCKETS];
+
+enum class SocketType : uint8_t
+{
+  TCP,
+  UDP,
+  TLS,
+  Empty=255,
+};
+
+SocketType socketTypes[MAX_SOCKETS];//0 - tcp, 1 - udp, 2 - tls
 WiFiClient tcpClients[MAX_SOCKETS];
-WiFiUDP udps[MAX_SOCKETS];
 WiFiSSLClient tlsClients[MAX_SOCKETS];
-WiFiServer tcpServers[MAX_SOCKETS];
+
+//Возвращает пустой сокет, если все заняты, возвращает MAX_SOCKETS
+uint8_t freeSocket()
+{
+  for (int i = 0; i < MAX_SOCKETS; i++) {
+    if(socketTypes[i] == SocketType::TCP)
+    {
+      if(!tcpClients[i])
+        socketTypes[i] = SocketType::Empty;
+    }
+
+    if(socketTypes[i] == SocketType::TLS)
+    {
+      if(!tlsClients[i])
+        socketTypes[i] = SocketType::Empty;
+    }
+
+    if (socketTypes[i] == SocketType::Empty)
+      return i;
+  }
+  return MAX_SOCKETS;
+}
+
+//Пускай сервер будет только один
+WiFiServer tcpServer;
 
 int invertBytes(const uint8_t command[], uint8_t response[])
 {
@@ -81,6 +113,18 @@ int setSsidAndPass(const uint8_t command[], uint8_t response[])
   return CESP_RESP_SET_SSID_AND_PASS;
 }
 
+int setApPassPhrase(const uint8_t command[], uint8_t response[])
+{
+  uint8_t channel = command[1];
+  const char* ssid = (const char*)(command+2);
+  const char* pass = ssid+strlen(ssid)+1;
+
+  *(uint32_t*)response = (WiFi.beginAP(ssid, pass, channel) == WL_CONNECTING)?1:0;
+
+  return 4;
+}
+
+
 int setHostname(const uint8_t command[], uint8_t response[])
 {
   const char* hostname = (const char*)(command + 4);
@@ -98,31 +142,8 @@ int setPowerMode(const uint8_t command[], uint8_t response[])
     WiFi.noLowPowerMode();
   }
 
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = 1;
-
-  return 6;
-}
-
-int setApPassPhrase(const uint8_t command[], uint8_t response[])
-{
-  char ssid[32 + 1];
-  char pass[64 + 1];
-  uint8_t channel;
-
-  memset(ssid, 0x00, sizeof(ssid));
-  memset(pass, 0x00, sizeof(pass));
-
-  memcpy(ssid, &command[4], command[3]);
-  memcpy(pass, &command[5 + command[3]], command[4 + command[3]]);
-  channel = command[6 + command[3] + command[4 + command[3]]];
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = (WiFi.beginAP(ssid, pass, channel) == WL_CONNECTING)?1:0;
-
-  return 6;
+  *(uint32_t*)response = 1;
+  return 4;
 }
 
 int setDebug(const uint8_t command[], uint8_t response[])
@@ -160,83 +181,51 @@ int getIPaddr(const uint8_t command[], uint8_t response[])
   /*IPAddress*/uint32_t mask = WiFi.subnetMask();
   /*IPAddress*/uint32_t gwip = WiFi.gatewayIP();
 
-  response[2] = 3; // number of parameters
+  memcpy(response+0, &ip, sizeof(ip));
+  memcpy(response+4, &mask, sizeof(mask));
+  memcpy(response+8, &gwip, sizeof(gwip));
 
-  response[3] = 4; // parameter 1 length
-  memcpy(&response[4], &ip, sizeof(ip));
-
-  response[8] = 4; // parameter 2 length
-  memcpy(&response[9], &mask, sizeof(mask));
-
-  response[13] = 4; // parameter 3 length
-  memcpy(&response[14], &gwip, sizeof(gwip));
-
-  return 19;
+  return 12;
 }
 
 int getMACaddr(const uint8_t command[], uint8_t response[])
 {
   uint8_t mac[6] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
-
   WiFi.macAddress(mac);
-
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(mac); // parameter 1 length
-
   memcpy(&response[4], mac, sizeof(mac));
-
-  return 11;
+  return 8;
 }
 
 int getCurrSSID(const uint8_t command[], uint8_t response[])
 {
   // ssid
+  const int resp_size = 36;
   const char* ssid = WiFi.SSID();
-  uint8_t ssidLen = strlen(ssid);
-
-  response[2] = 1; // number of parameters
-  response[3] = ssidLen; // parameter 1 length
-
-  memcpy(&response[4], ssid, ssidLen);
-
-  return (5 + ssidLen);
+  memset(response, 0, resp_size);
+  strlcpy((char*)response, ssid, resp_size);
+  return resp_size;
 }
 
 int getCurrBSSID(const uint8_t command[], uint8_t response[])
 {
   uint8_t bssid[6];
-
   WiFi.BSSID(bssid);
-
-  response[2] = 1; // number of parameters
-  response[3] = 6; // parameter 1 length
-
-  memcpy(&response[4], bssid, sizeof(bssid));
-
-  return 11;
+  memcpy(response, bssid, sizeof(bssid));
+  return 8;
 }
 
 int getCurrRSSI(const uint8_t command[], uint8_t response[])
 {
   int32_t rssi = WiFi.RSSI();
-
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(rssi); // parameter 1 length
-
-  memcpy(&response[4], &rssi, sizeof(rssi));
-
-  return 9;
+  memcpy(response, &rssi, sizeof(rssi));
+  return 4;
 }
 
 int getCurrEnct(const uint8_t command[], uint8_t response[])
 {
   uint8_t encryptionType = WiFi.encryptionType();
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = encryptionType;
-
-  return 6;
+  *(uint32_t*)response = encryptionType;
+  return 4;
 }
 
 int scanNetworks(const uint8_t command[], uint8_t response[])
@@ -270,102 +259,15 @@ int scanNetworksResult(const uint8_t command[], uint8_t response[])
   return responseLength;
 }
 
-
-int startServerTcp(const uint8_t command[], uint8_t response[])
-{
-  uint32_t ip = 0;
-  uint16_t port;
-  uint8_t socket;
-  uint8_t type;
-
-  if (command[2] == 3) {
-    memcpy(&port, &command[4], sizeof(port));
-    port = ntohs(port);
-    socket = command[7];
-    type = command[9];
-  } else {
-    memcpy(&ip, &command[4], sizeof(ip));
-    memcpy(&port, &command[9], sizeof(port));
-    port = ntohs(port);
-    socket = command[12];
-    type = command[14];
-  }
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (type == 0x00) {
-    tcpServers[socket] = WiFiServer(port);
-
-    tcpServers[socket].begin();
-
-    socketTypes[socket] = 0x00;
-    response[4] = 1;
-  } else if (type == 0x01 && udps[socket].begin(port)) {
-    socketTypes[socket] = 0x01;
-    response[4] = 1;
-  } else if (type == 0x03 && udps[socket].beginMulticast(ip, port)) {
-    socketTypes[socket] = 0x01;
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
-
-  return 6;
-}
-
 int availSocketData(const uint8_t command[], uint8_t response[])
 {
   uint8_t socket = command[1];
   uint16_t available = 0;
 
-  if (socketTypes[socket] == 0x00) {
-    if (tcpServers[socket]) {
-      WiFiClient client = tcpServers[socket].available();
-
-      available = 255;
-
-      if (client) {
-        // try to find existing socket slot
-        for (int i = 0; i < MAX_SOCKETS; i++) {
-          if (i == socket) {
-            continue; // skip this slot
-          }
-
-          if (socketTypes[i] == 0x00 && tcpClients[i] == client) {
-            available = i;
-            break;
-          }
-        }
-
-        if (available == 255) {
-          // book keep new slot
-
-          for (int i = 0; i < MAX_SOCKETS; i++) {
-            if (i == socket) {
-              continue; // skip this slot
-            }
-
-            if (socketTypes[i] == 255) {
-              socketTypes[i] = 0x00;
-              tcpClients[i] = client;
-
-              available = i;
-              break;
-            }
-          }
-        }
-      }
-    } else {
+  if (socketTypes[socket] == SocketType::TCP) {
       available = tcpClients[socket].available();
-    }
-  } else if (socketTypes[socket] == 0x01) {
-    available = udps[socket].available();
-
-    if (available <= 0) {
-      available = udps[socket].parsePacket();
-    }
-  } else if (socketTypes[socket] == 0x02) {
+  } else if (socketTypes[socket] == SocketType::UDP) {
+  } else if (socketTypes[socket] == SocketType::TLS) {
     available = tlsClients[socket].available();
   }
 
@@ -379,12 +281,17 @@ int startSocketClient(const uint8_t command[], uint8_t response[])
   const char* host = NULL;
   uint32_t ip;
   uint16_t port;
-  uint8_t socket;
   uint8_t type;
 
+  uint8_t socket = freeSocket();
+  if(socket==MAX_SOCKETS)
+  {
+    *(uint32_t*)response = 255;
+    return CESP_RESP_START_SOCKET_CLIENT;
+  }
+
   memcpy(&port, command+2, sizeof(port));
-  socket = command[4];
-  type = command[5];
+  type = command[4];
 
   //printf("startSocketClient type=%i port=%u\n", (int)type, (int)port);
   if (command[1] == 0) {
@@ -402,19 +309,9 @@ int startSocketClient(const uint8_t command[], uint8_t response[])
     }
 
     if (result)
-      socketTypes[socket] = 0x00;
+      socketTypes[socket] = SocketType::TCP;
   } else if (type == 0x01) {//UDP Mode
-    result = udps[socket].begin();
-    if(result){
-      if (host) {
-        result = udps[socket].beginPacket(host, port);
-      } else {
-        result = udps[socket].beginPacket(ip, port);
-      }
-    }
 
-    if (result)
-      socketTypes[socket] = 0x01;
   } else if (type == 0x02) {//TLS Mode
     if (host) {
       if (setCert && setPSK) {
@@ -431,11 +328,11 @@ int startSocketClient(const uint8_t command[], uint8_t response[])
     }
 
     if (result) {
-      socketTypes[socket] = 0x02;
+      socketTypes[socket] = SocketType::TLS;
     }
   }
 
-  *(uint32_t*)response = result?1:0;
+  *(uint32_t*)response = socket;
   return CESP_RESP_START_SOCKET_CLIENT;
 }
 
@@ -443,18 +340,14 @@ int closeSocket(const uint8_t command[], uint8_t response[])
 {
   uint8_t socket = command[1];
 
-  if (socketTypes[socket] == 0x00) {
+  if (socketTypes[socket] == SocketType::TCP) {
     tcpClients[socket].stop();
+    socketTypes[socket] = SocketType::Empty;
+  } else if (socketTypes[socket] == SocketType::UDP) {
 
-    socketTypes[socket] = 255;
-  } else if (socketTypes[socket] == 0x01) {
-    udps[socket].stop();
-
-    socketTypes[socket] = 255;
-  } else if (socketTypes[socket] == 0x02) {
+  } else if (socketTypes[socket] == SocketType::TLS) {
     tlsClients[socket].stop();
-
-    socketTypes[socket] = 255;
+    socketTypes[socket] = SocketType::Empty;
   }
 
   *(uint32_t*)response = 0;
@@ -467,9 +360,9 @@ int getSocketState(const uint8_t command[], uint8_t response[])
 
   uint8_t connected = 0;
 
-  if ((socketTypes[socket] == 0x00) && tcpClients[socket].connected()) {
+  if ((socketTypes[socket] == SocketType::TCP) && tcpClients[socket].connected()) {
     connected = 1;
-  } else if ((socketTypes[socket] == 0x02) && tlsClients[socket].connected()) {
+  } else if ((socketTypes[socket] == SocketType::TLS) && tlsClients[socket].connected()) {
     connected = 1;
   }
 
@@ -489,25 +382,16 @@ int disconnectWiFi(const uint8_t command[], uint8_t response[])
 int getIdxRSSI(const uint8_t command[], uint8_t response[])
 {
   // RSSI
-  int32_t rssi = WiFi.RSSI(command[4]);
-
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(rssi); // parameter 1 length
-
-  memcpy(&response[4], &rssi, sizeof(rssi));
-
-  return 9;
+  int32_t rssi = WiFi.RSSI(command[1]);
+  *(uint32_t*)response = rssi;
+  return 4;
 }
 
 int getIdxEnct(const uint8_t command[], uint8_t response[])
 {
   uint8_t encryptionType = WiFi.encryptionType(command[4]);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = encryptionType;
-
-  return 6;
+  *(uint32_t*)response = encryptionType;
+  return 4;
 }
 
 int reqHostByName(const uint8_t command[], uint8_t response[])
@@ -527,22 +411,6 @@ int getFwVersion(const uint8_t command[], uint8_t response[])
   return CESP_RESP_FW_VERSION;
 }
 
-int sendUDPdata(const uint8_t command[], uint8_t response[])
-{
-  uint8_t socket = command[4];
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (udps[socket].endPacket()) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
-
-  return 6;
-}
-
 int getRemoteData(const uint8_t command[], uint8_t response[])
 {
   uint8_t socket = command[4];
@@ -550,63 +418,44 @@ int getRemoteData(const uint8_t command[], uint8_t response[])
   /*IPAddress*/uint32_t ip = /*IPAddress(0, 0, 0, 0)*/0;
   uint16_t port = 0;
 
-  if (socketTypes[socket] == 0x00) {
+  if (socketTypes[socket] == SocketType::TCP) {
     ip = tcpClients[socket].remoteIP();
     port = tcpClients[socket].remotePort();
-  } else if (socketTypes[socket] == 0x01) {
-    ip = udps[socket].remoteIP();
-    port = udps[socket].remotePort();
-  } else if (socketTypes[socket] == 0x02) {
+  } else if (socketTypes[socket] == SocketType::UDP) {
+  } else if (socketTypes[socket] == SocketType::TLS) {
     ip = tlsClients[socket].remoteIP();
     port = tlsClients[socket].remotePort();
   }
 
-  response[2] = 2; // number of parameters
+  memcpy(response+0, &ip, sizeof(ip));
 
-  response[3] = 4; // parameter 1 length
-  memcpy(&response[4], &ip, sizeof(ip));
+  //Тут вопрос - надо ли такой swap byte
+  response[4] = (port >> 8) & 0xff;
+  response[5] = (port >> 0) & 0xff;
 
-  response[8] = 2; // parameter 2 length
-  response[9] = (port >> 8) & 0xff;
-  response[10] = (port >> 0) & 0xff;
-
-  return 12;
+  return 8;
 }
 
 int getTime(const uint8_t command[], uint8_t response[])
 {
-  unsigned long now = WiFi.getTime();
-
-  response[2] = 1; // number of parameters
-  response[3] = sizeof(now); // parameter 1 length
-
-  memcpy(&response[4], &now, sizeof(now));
-
-  return 5 + sizeof(now);
+  time_t now = WiFi.getTime();
+  *(uint32_t*)response = now;
+  return 4;
 }
 
 int getIdxBSSID(const uint8_t command[], uint8_t response[])
 {
   uint8_t bssid[6];
-
-  WiFi.BSSID(command[4], bssid);
-
-  response[2] = 1; // number of parameters
-  response[3] = 6; // parameter 1 length
-  memcpy(&response[4], bssid, sizeof(bssid));
-
-  return 11;
+  WiFi.BSSID(command[1], bssid);
+  memcpy(response, bssid, sizeof(bssid));
+  return 4;
 }
 
 int getIdxChannel(const uint8_t command[], uint8_t response[])
 {
   uint8_t channel = WiFi.channel(command[4]);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-  response[4] = channel;
-
-  return 6;
+  *(uint32_t*)response = channel;
+  return 4;
 }
 
 int sendSocketData(const uint8_t command[], uint8_t response[])
@@ -619,11 +468,9 @@ int sendSocketData(const uint8_t command[], uint8_t response[])
   memcpy(&length, command+2, sizeof(length));
   const uint8_t* data = command+4;
 
-  if ((socketTypes[socket] == 0x00) && tcpServers[socket]) {
-    written = tcpServers[socket].write(data, length);
-  } else if (socketTypes[socket] == 0x00) {
+  if (socketTypes[socket] == SocketType::TCP) {
     written = tcpClients[socket].write(data, length);
-  } else if (socketTypes[socket] == 0x02) {
+  } else if (socketTypes[socket] == SocketType::TLS) {
     written = tlsClients[socket].write(data, length);
   }
   
@@ -646,11 +493,11 @@ int readSocketData(const uint8_t command[], uint8_t response[])
   if(debug)
     printf("readSocketData socket=%i length=%i socketTypes=%i\n", (int)socket, (int)length, (int)socketTypes[socket]);
 
-  if (socketTypes[socket] == 0x00) {
+  if (socketTypes[socket] == SocketType::TCP) {
     read = tcpClients[socket].read(out, length);
-  } else if (socketTypes[socket] == 0x01) {
-    read = udps[socket].read(out, length);
-  } else if (socketTypes[socket] == 0x02) {
+  } else if (socketTypes[socket] == SocketType::UDP) {
+    
+  } else if (socketTypes[socket] == SocketType::TLS) {
     read = tlsClients[socket].read(out, length);
   }
 
@@ -658,27 +505,6 @@ int readSocketData(const uint8_t command[], uint8_t response[])
     read = 0;
   *(uint32_t*)response = read;
   return (4 + length);
-}
-
-int insertDataBuf(const uint8_t command[], uint8_t response[])
-{
-  uint8_t socket;
-  uint16_t length;
-
-  socket = command[5];
-  memcpy(&length, &command[6], sizeof(length));
-  length = ntohs(length);
-
-  response[2] = 1; // number of parameters
-  response[3] = 1; // parameter 1 length
-
-  if (udps[socket].write(&command[8], length) != 0) {
-    response[4] = 1;
-  } else {
-    response[4] = 0;
-  }
-
-  return 6;
 }
 
 int ping(const uint8_t command[], uint8_t response[])
@@ -697,21 +523,6 @@ int ping(const uint8_t command[], uint8_t response[])
   memcpy(&response[2], &result, sizeof(result));
 
   return CESP_RESP_PING;
-}
-
-int getSocket(const uint8_t command[], uint8_t response[])
-{
-  uint8_t result = 255;
-
-  for (int i = 0; i < MAX_SOCKETS; i++) {
-    if (socketTypes[i] == 255) {
-      result = i;
-      break;
-    }
-  }
-
-  *(uint32_t*)response = result;
-  return CESP_RESP_GET_SOCKET;
 }
 
 int setPinMode(const uint8_t command[], uint8_t response[])
@@ -868,19 +679,19 @@ const CommandHandlerType commandHandlers[] =
   getConnStatus, getIPaddr, getMACaddr, getCurrSSID,
   getCurrBSSID, getCurrRSSI, getCurrEnct, NULL,
   //89ab
-  startServerTcp, NULL, NULL, availSocketData,
+  NULL, NULL, NULL, availSocketData,
   //cdef
   NULL, startSocketClient, closeSocket, getSocketState,
 
   // 0x30 -> 0x3f
   NULL, NULL, getIdxRSSI, getIdxEnct,
   reqHostByName, NULL, NULL, getFwVersion,
-  NULL, sendUDPdata, getRemoteData, getTime,
-  getIdxBSSID, getIdxChannel, ping, getSocket,
+  NULL, NULL, getRemoteData, getTime,
+  getIdxBSSID, getIdxChannel, ping, NULL,
 
   // 0x40 -> 0x4f
   setClientCert, setCertKey, NULL, NULL,
-  sendSocketData, readSocketData, insertDataBuf, NULL,
+  sendSocketData, readSocketData, NULL, NULL,
   NULL, NULL, wpa2EntSetIdentity, wpa2EntSetUsername,
   wpa2EntSetPassword, wpa2EntSetCACert, wpa2EntSetCertKey, wpa2EntEnable,
 
@@ -900,7 +711,7 @@ void CommandHandlerClass::begin()
   pinMode(0, OUTPUT);
 
   for (int i = 0; i < MAX_SOCKETS; i++) {
-    socketTypes[i] = 255;
+    socketTypes[i] = SocketType::Empty;
   }
 }
 

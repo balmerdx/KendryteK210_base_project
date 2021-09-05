@@ -85,7 +85,7 @@ static void test_connection()
 static void test_socket()
 {
     uint8_t socket = connect_server_port_tcp("dl.sipeed.com", 80);
-    if(socket == 0xff)
+    if(socket == esp32_spi_bad_socket())
         return;
 
     bool connected = esp32_spi_socket_connected(socket);
@@ -151,7 +151,7 @@ static void test_download_speed()
 {
     const char* site = "dl.sipeed.com";
     uint8_t socket = connect_server_port_tcp(site, 80);
-    if(socket == 0xff)
+    if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
         return;
@@ -200,7 +200,7 @@ static void test_download_speed_iperf()
 {
     const char* site = "192.168.1.48";
     uint8_t socket = connect_server_port_tcp(site, 5001);
-    if(socket == 0xff)
+    if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
         return;
@@ -253,7 +253,7 @@ static void test_upload_speed_iperf()
 {
     const char* site = "192.168.1.48";
     uint8_t socket = connect_server_port_tcp(site, 5001);
-    if(socket == 0xff)
+    if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
         return;
@@ -299,7 +299,7 @@ static void test_download_speed_short()
 {
     const char* site = "192.168.1.48";
     uint8_t socket = connect_server_port_tcp(site, 5001);
-    if(socket == 0xff)
+    if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
         return;

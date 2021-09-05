@@ -34,9 +34,6 @@ WiFiServer::WiFiServer(uint16_t port) :
   _port(port),
   _socket(-1)
 {
-  for (int i = 0; i < CONFIG_LWIP_MAX_SOCKETS; i++) {
-    _spawnedSockets[i] = -1;
-  }
 }
 
 void WiFiServer::begin()
@@ -72,60 +69,27 @@ void WiFiServer::begin()
   return;
 }
 
-WiFiClient WiFiServer::available(uint8_t* status)
+WiFiClient WiFiServer::accept(uint8_t* status)
 {
   int result = lwip_accept(_socket, NULL, 0);
-
-  if (status) {
-    *status = (result != -1);
-  }
-
-  if (result != -1) {
-    // store the connected socket
-    for (int i = 0; i < CONFIG_LWIP_MAX_SOCKETS; i++) {
-      if (_spawnedSockets[i] == -1) {
-        _spawnedSockets[i] = result;
-        break;
-      }
-    }
-  }
-
-  result = -1;
-
-  // find an existing socket with data
-  for (int i = 0; i < CONFIG_LWIP_MAX_SOCKETS; i++) {
-    if (_spawnedSockets[i] != -1) {
-      WiFiClient c(_spawnedSockets[i]);
-
-      if (!c.connected()) {
-        // socket not connected, clear from book keeping
-        _spawnedSockets[i] = -1;
-      } else if (c.available()) {
-        result = _spawnedSockets[i];
-        break;
-      }
-    }
+  if (result <= 0 && errno != EWOULDBLOCK) {
+    close(_socket);
+    _socket = -1;
   }
 
   return WiFiClient(result);
 }
 
-size_t WiFiServer::write(const uint8_t *buffer, size_t size)
-{
-  size_t written = 0;
-
-  for (int i = 0; i < CONFIG_LWIP_MAX_SOCKETS; i++) {
-    if (_spawnedSockets[i] != -1) {
-      WiFiClient c(_spawnedSockets[i]);
-
-      written += c.write(buffer, size);
-    }
-  }
-
-  return written;
-}
-
 WiFiServer::operator bool()
 {
   return (_port != 0 && _socket != -1);
+}
+
+void WiFiServer::stop()
+{
+  if (_socket != -1) {
+    close(_socket);
+    _socket = -1;
+    printf("WiFiServer::stop _socket=-1\n");
+  }
 }

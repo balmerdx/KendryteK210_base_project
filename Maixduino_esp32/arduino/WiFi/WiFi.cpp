@@ -398,7 +398,7 @@ uint8_t WiFiClass::channel(uint8_t pos)
   return _scanResults[pos].primary;
 }
 
-unsigned long WiFiClass::getTime()
+time_t WiFiClass::getTime()
 {
   time_t now;
 

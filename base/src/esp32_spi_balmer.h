@@ -36,6 +36,7 @@ typedef struct __packed
     esp32_spi_ap_t aps[0];
 } esp32_spi_aps_list_t;
 
+inline uint8_t esp32_spi_bad_socket() { return 0xFF; }
 
 size_t esp32_round_up4(size_t s);
 
@@ -68,12 +69,12 @@ bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase);
 void esp32_spi_reset();
 
 
-uint8_t esp32_spi_get_socket();
 //Открываем соединение, но не ожидаем, что открытие завершится.
 //Более высокоуровневая функция - connect_server_port_tcp
-bool esp32_spi_socket_open_ip(uint8_t sock_num, const uint8_t ip[4],
+//return socket
+uint8_t esp32_spi_socket_open_ip(const uint8_t ip[4],
                              uint16_t port, esp32_socket_mode_enum_t conn_mode);
-bool esp32_spi_socket_open(uint8_t sock_num, const char* hostname,
+uint8_t esp32_spi_socket_open(const char* hostname,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode);
 
 int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_type, uint16_t port, esp32_socket_mode_enum_t conn_mod);

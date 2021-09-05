@@ -385,19 +385,14 @@ const char* wlan_enum_to_str(esp32_wlan_enum_t x)
     return "unknown";
 }
 
-uint8_t esp32_spi_get_socket()
-{
-    if(!esp32_transfer_no_param(CESP_GET_SOCKET, CESP_RESP_GET_SOCKET))
-        return 0xFF;
-    return rx_buffer[0];
-}
-
 /*
 dest_type 
             0 ip array
             1 hostname
+return socket_num
+return 255 if fail
 */
-static bool esp32_spi_socket_open_internal(uint8_t sock_num, const uint8_t *dest, uint8_t dest_type,
+static uint8_t esp32_spi_socket_open_internal(const uint8_t *dest, uint8_t dest_type,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 {
     size_t len = 0;
@@ -405,8 +400,8 @@ static bool esp32_spi_socket_open_internal(uint8_t sock_num, const uint8_t *dest
     tx_buffer[1] = dest_type;
     memcpy(tx_buffer+2, &port, 2);
     len += 4;
-    tx_buffer[len+0] = sock_num;
-    tx_buffer[len+1] = conn_mode;
+    tx_buffer[len+0] = conn_mode;
+    tx_buffer[len+1] = 0;
     tx_buffer[len+2] = 0;
     tx_buffer[len+3] = 0;
     len += 4;
@@ -427,20 +422,20 @@ static bool esp32_spi_socket_open_internal(uint8_t sock_num, const uint8_t *dest
     if(!esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_START_SOCKET_CLIENT))
         return 0xFF;
 
-    return rx_buffer[0]?true:false;
+    return rx_buffer[0];
 }
 
-bool esp32_spi_socket_open_ip(uint8_t sock_num, const uint8_t ip[4],
+uint8_t esp32_spi_socket_open_ip(const uint8_t ip[4],
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 {
-    return esp32_spi_socket_open_internal(sock_num, ip, 0, port, conn_mode);
+    return esp32_spi_socket_open_internal(ip, 0, port, conn_mode);
 }
 
-bool esp32_spi_socket_open(uint8_t sock_num, const char* hostname,
+uint8_t esp32_spi_socket_open(const char* hostname,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 
 {
-    return esp32_spi_socket_open_internal(sock_num, (const uint8_t*)hostname, 1, port, conn_mode);
+    return esp32_spi_socket_open_internal((const uint8_t*)hostname, 1, port, conn_mode);
 }
 
 bool esp32_spi_socket_connected(uint8_t socket_num)
@@ -500,20 +495,11 @@ int8_t esp32_spi_socket_close(uint8_t socket_num)
 
 uint8_t connect_server_port_tcp(const char *host, uint16_t port)
 {
-    uint8_t sock = esp32_spi_get_socket();
-    if (sock == 0xff)
-        return 0xff;
     uint8_t ip[4];
     if (!esp32_spi_get_host_by_name(host, ip))
     {
-        esp32_spi_socket_close(sock);
-        return 0xff;
+        return esp32_spi_bad_socket();
     }
 
-    if (!esp32_spi_socket_open_ip(sock, ip, port, TCP_MODE))
-    {
-        esp32_spi_socket_close(sock);        
-        return 0xff;
-    }
-    return sock;
+    return esp32_spi_socket_open_ip(ip, port, TCP_MODE);
 }

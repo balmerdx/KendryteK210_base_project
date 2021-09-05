@@ -19,12 +19,11 @@
 #pragma once
 #include <Arduino.h>
 
-class WiFiServer;
-
 class WiFiClient {
 
 public:
   WiFiClient();
+  WiFiClient(int socket);
 
   virtual int connect(/*IPAddress*/uint32_t ip, uint16_t port);
   virtual int connect(const char* host, uint16_t port);
@@ -39,11 +38,6 @@ public:
 
   virtual /*IPAddress*/uint32_t remoteIP();
   virtual uint16_t remotePort();
-
-protected:
-  friend class WiFiServer;
-
-  WiFiClient(int socket);
 
 private:
   int _socket;
