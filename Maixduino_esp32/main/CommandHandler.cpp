@@ -695,11 +695,12 @@ int tcpServerAccept(const uint8_t command[], uint8_t response[]){
       client.stop();
     } else
     {
+      tcpClients[socket] = client;
       socketTypes[socket] = SocketType::TCP;
     }
   }
 
-  response[0] = BAD_SOCKET_IDX;
+  response[0] = socket;
   response[1] = tcpServer?1:0;
   response[2] = 0;
   response[3] = 0;

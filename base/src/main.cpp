@@ -196,6 +196,39 @@ static void test_download_speed()
     printf("close socket status: %i\r\n", close_status);
 }
 
+static void read_many_from_socket(uint8_t socket, uint64_t time_us = 5000000)
+{
+    const uint32_t LEN = 4000;
+    int total = 0;
+    uint16_t len_rx = 0;            
+    uint8_t tmp_buf[LEN] = {0};
+    uint64_t start_time_us = sysctl_get_time_us();
+    uint64_t end_time_us = sysctl_get_time_us();
+    do{
+        bool is_client_alive;
+        len_rx = esp32_spi_socket_read(socket, &tmp_buf[0], LEN, &is_client_alive);
+        if(!is_client_alive)
+        {
+            printf("esp32_spi_socket_read is_client_alive=false\n");
+            break;
+        }
+        //if(len_rx>0)
+        //    printf("len_rx=%i\n", (int)len_rx);
+        if(len_rx>0)
+            end_time_us = sysctl_get_time_us();
+        total += len_rx;
+        if(len_rx < LEN)
+            msleep(4);
+        else
+            usleep(500);
+    }while(sysctl_get_time_us()-start_time_us<time_us);
+
+    float dt = (end_time_us-start_time_us)*1e-6f;
+    printf("total data read len: %d\r\n", total);
+    printf("total time: %f\r\n", dt);
+    printf("%.3f mbit/sec\n", (total*8/dt)*1e-6);
+}
+
 static void test_download_speed_iperf()
 {
     const char* site = "192.168.1.48";
@@ -208,7 +241,6 @@ static void test_download_speed_iperf()
 
     bool connected = esp32_spi_socket_connected(socket);
     printf("test_download_speed_iperf status: %s\r\n", connected?"connected":"disconnected");
-    const uint32_t LEN = 4000;
 
     if(connected)
     {
@@ -218,37 +250,7 @@ static void test_download_speed_iperf()
         len = esp32_spi_socket_write(socket, (uint8_t*)buf, strlen(buf)+1);
         printf("esp32_spi_socket_write return: %d\r\n", len);
 
-        int total = 0;
-        
-        {
-            uint16_t len_rx = 0;            
-            uint8_t tmp_buf[LEN] = {0};
-            uint64_t start_time_us = sysctl_get_time_us();
-            uint64_t end_time_us = sysctl_get_time_us();
-            do{
-                bool is_client_alive;
-                len_rx = esp32_spi_socket_read(socket, &tmp_buf[0], LEN, &is_client_alive);
-                if(!is_client_alive)
-                {
-                    printf("esp32_spi_socket_read is_client_alive=false\n");
-                    break;
-                }
-                //if(len_rx>0)
-                //    printf("len_rx=%i\n", (int)len_rx);
-                if(len_rx>0)
-                    end_time_us = sysctl_get_time_us();
-                total += len_rx;
-                if(len_rx < LEN)
-                    msleep(4);
-                else
-                    usleep(500);
-            }while(sysctl_get_time_us()-start_time_us<5000000);
-
-            float dt = (end_time_us-start_time_us)*1e-6f;
-            printf("total data read len: %d\r\n", total);
-            printf("total time: %f\r\n", dt);
-            printf("%.3f mbit/sec\n", (total*8/dt)*1e-6);
-        }
+        read_many_from_socket(socket);
     }
 
     int close_status = esp32_spi_socket_close(socket);
@@ -352,6 +354,37 @@ static void test_download_speed_short()
     printf("close socket status: %i\r\n", close_status);
 }
 
+void test_server()
+{
+    uint16_t port = 5001;
+    if(!esp32_spi_server_create(port))
+    {
+        printf("test_server cannot create server\n");
+        return;
+    }
+
+    printf("test_server created, listening\n");
+    while(1)
+    {
+        bool is_server_alive;
+        uint8_t socket = esp32_spi_server_accept(&is_server_alive);
+        if(!is_server_alive)
+        {
+            printf("Server not alive\n");
+            break;
+        }
+        msleep(1);
+
+        if(socket!=esp32_spi_bad_socket())
+        {
+            read_many_from_socket(socket);
+            int close_status = esp32_spi_socket_close(socket);
+            printf("close socket status: %i\n", close_status);
+        }
+    }
+
+    esp32_spi_server_stop();
+}
 
 int main(void)
 {
@@ -372,8 +405,9 @@ int main(void)
     test_connection();
     //test_download_speed_short();
     //test_socket();
-    test_download_speed_iperf();
+    //test_download_speed_iperf();
     //test_upload_speed_iperf();
+    test_server();
     //esp32_spi_reset();
 
     while(1)

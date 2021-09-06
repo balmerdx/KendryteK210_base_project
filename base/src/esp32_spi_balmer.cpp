@@ -521,7 +521,7 @@ uint8_t connect_server_port_tcp(const char *host, uint16_t port)
 bool esp32_spi_server_create(uint16_t port)
 {
     uint32_t port32 = port;
-    if(!esp32_transfer_no_param(CESP_AVAIL_SOCKET_DATA|(port32<<16), CESP_RESP_TCP_SERVER_CREATE))
+    if(!esp32_transfer_no_param(CESP_TCP_SERVER_CREATE|(port32<<16), CESP_RESP_TCP_SERVER_CREATE))
         return 0;
     return rx_buffer[0]?true:false;
 
@@ -535,7 +535,11 @@ void esp32_spi_server_stop()
 uint8_t esp32_spi_server_accept(bool* is_server_alive)
 {
     if(!esp32_transfer_no_param(CESP_TCP_SERVER_ACCEPT, CESP_RESP_TCP_SERVER_ACCEPT))
+    {
+        printf("esp32_spi_server_accept Transfer failed\n");
         return esp32_spi_bad_socket();
+    }
+
     if(is_server_alive)
         *is_server_alive = rx_buffer[1]?true:false;
     return rx_buffer[0];

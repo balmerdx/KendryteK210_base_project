@@ -76,6 +76,7 @@ WiFiClient WiFiServer::accept()
 
   int result = lwip_accept(_socket, NULL, 0);
   if (result <= 0 && errno != EWOULDBLOCK) {
+    printf("WiFiServer::accept errno=%i\n", errno);
     close(_socket);
     _socket = -1;
   }
