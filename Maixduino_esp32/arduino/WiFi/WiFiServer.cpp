@@ -36,12 +36,12 @@ WiFiServer::WiFiServer(uint16_t port) :
 {
 }
 
-void WiFiServer::begin()
+bool WiFiServer::begin()
 {
   _socket = lwip_socket(AF_INET, SOCK_STREAM, 0);
 
   if (_socket < 0) {
-    return;
+    return false;
   }
 
   struct sockaddr_in addr;
@@ -54,23 +54,26 @@ void WiFiServer::begin()
   if (lwip_bind(_socket, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     lwip_close(_socket);
     _socket = -1;
-    return;
+    return false;
   }
 
   if (lwip_listen(_socket, 1) < 0) {
     lwip_close(_socket);
     _socket = -1;
-    return;
+    return false;
   }
 
   int nonBlocking = 1;
   lwip_ioctl(_socket, FIONBIO, &nonBlocking);
 
-  return;
+  return true;
 }
 
-WiFiClient WiFiServer::accept(uint8_t* status)
+WiFiClient WiFiServer::accept()
 {
+  if(_socket==-1)
+    return WiFiClient(-1);
+
   int result = lwip_accept(_socket, NULL, 0);
   if (result <= 0 && errno != EWOULDBLOCK) {
     close(_socket);

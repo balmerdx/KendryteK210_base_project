@@ -28,8 +28,8 @@ class WiFiServer {
 public:
   WiFiServer();
   WiFiServer(uint16_t port);
-  WiFiClient accept(uint8_t* status = NULL);
-  void begin();
+  WiFiClient accept();
+  bool begin();
   void stop();
 
   virtual operator bool();

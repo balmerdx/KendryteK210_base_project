@@ -226,7 +226,13 @@ static void test_download_speed_iperf()
             uint64_t start_time_us = sysctl_get_time_us();
             uint64_t end_time_us = sysctl_get_time_us();
             do{
-                len_rx = esp32_spi_socket_read(socket, &tmp_buf[0], LEN);
+                bool is_client_alive;
+                len_rx = esp32_spi_socket_read(socket, &tmp_buf[0], LEN, &is_client_alive);
+                if(!is_client_alive)
+                {
+                    printf("esp32_spi_socket_read is_client_alive=false\n");
+                    break;
+                }
                 //if(len_rx>0)
                 //    printf("len_rx=%i\n", (int)len_rx);
                 if(len_rx>0)
@@ -318,31 +324,28 @@ static void test_download_speed_short()
         printf("esp32_spi_socket_write return: %d\r\n", len);
 
         int total = 0;
-        
-        {
-            uint16_t len_rx = 0;            
-            uint8_t tmp_buf[LEN] = {0};
-            uint64_t start_time_us = sysctl_get_time_us();
-            uint64_t end_time_us = sysctl_get_time_us();
-            do{
-                len_rx = esp32_spi_socket_read(socket, &tmp_buf[total], LEN-1-total);
-                //if(len_rx>0)
-                //    printf("len_rx=%i\n", (int)len_rx);
-                if(len_rx>0)
-                    end_time_us = sysctl_get_time_us();
-                total += len_rx;
+        uint16_t len_rx = 0;            
+        uint8_t tmp_buf[LEN] = {0};
+        uint64_t start_time_us = sysctl_get_time_us();
+        uint64_t end_time_us = sysctl_get_time_us();
+        do{
+            len_rx = esp32_spi_socket_read(socket, &tmp_buf[total], LEN-1-total);
+            //if(len_rx>0)
+            //    printf("len_rx=%i\n", (int)len_rx);
+            if(len_rx>0)
+                end_time_us = sysctl_get_time_us();
+            total += len_rx;
 
-                if(total>0)
-                    break;
-                msleep(1);
-            }while(sysctl_get_time_us()-start_time_us<5000000);
+            if(total>0)
+                break;
+            msleep(1);
+        }while(sysctl_get_time_us()-start_time_us<5000000);
 
-            float dt = (end_time_us-start_time_us)*1e-6f;
-            printf("total data read len: %d\r\n", total);
-            printf("total time: %f\r\n", dt);
-            printf("%.3f mbit/sec\n", (total*8/dt)*1e-6);
-            printf("message: %s\r\n", (const char*)tmp_buf);
-        }
+        float dt = (end_time_us-start_time_us)*1e-6f;
+        printf("total data read len: %d\r\n", total);
+        printf("total time: %f\r\n", dt);
+        printf("%.3f mbit/sec\n", (total*8/dt)*1e-6);
+        printf("message: %s\r\n", (const char*)tmp_buf);
     }
 
     int close_status = esp32_spi_socket_close(socket);

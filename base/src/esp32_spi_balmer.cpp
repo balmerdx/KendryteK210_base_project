@@ -446,20 +446,6 @@ bool esp32_spi_socket_connected(uint8_t socket_num)
     return rx_buffer[0];
 }
 
-uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len)
-{
-    if(len > BUFFER_SIZE-4)
-        return 0;
-    tx_buffer[0] = CESP_SEND_SOCKET_DATA;
-    tx_buffer[1] = socket_num;
-    memcpy(tx_buffer+2, &len, 2);
-    memcpy(tx_buffer+4, buffer, len);
-
-    if(!esp32_transfer(tx_buffer, len+4, rx_buffer, CESP_RESP_SEND_SOCKET_DATA))
-        return 0;
-    return *(uint16_t*)rx_buffer;
-}
-
 uint16_t esp32_spi_socket_available(uint8_t socket_num)
 {
     uint32_t sn = socket_num;
@@ -468,10 +454,35 @@ uint16_t esp32_spi_socket_available(uint8_t socket_num)
     return *(uint16_t*)rx_buffer;
 }
 
-uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size)
+uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive)
+{
+    if(len > BUFFER_SIZE-4)
+    {
+        if(is_client_alive)
+            *is_client_alive = true; //Т.к. в реальности не знаем, какой статус.
+        return 0;
+    }
+
+    tx_buffer[0] = CESP_SEND_SOCKET_DATA;
+    tx_buffer[1] = socket_num;
+    memcpy(tx_buffer+2, &len, 2);
+    memcpy(tx_buffer+4, buffer, len);
+
+    if(!esp32_transfer(tx_buffer, len+4, rx_buffer, CESP_RESP_SEND_SOCKET_DATA))
+        return 0;
+    if(is_client_alive)
+        *is_client_alive = rx_buffer[2]?true:false;
+    return *(uint16_t*)rx_buffer;
+}
+
+uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bool* is_client_alive)
 {
     if(size > BUFFER_SIZE-4)
+    {
+        if(is_client_alive)
+            *is_client_alive = true; //Т.к. в реальности не знаем, какой статус.
         return 0;
+    }
     tx_buffer[0] = CESP_READ_SOCKET_DATA;
     tx_buffer[1] = socket_num;
     memcpy(tx_buffer+2, &size, 2);
@@ -482,6 +493,8 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size)
         return 0;
     }
     memcpy(buff, rx_buffer+4, size);
+    if(is_client_alive)
+        *is_client_alive = rx_buffer[2]?true:false;
     return *(uint16_t*)rx_buffer;
 }
 
@@ -502,4 +515,28 @@ uint8_t connect_server_port_tcp(const char *host, uint16_t port)
     }
 
     return esp32_spi_socket_open_ip(ip, port, TCP_MODE);
+}
+
+
+bool esp32_spi_server_create(uint16_t port)
+{
+    uint32_t port32 = port;
+    if(!esp32_transfer_no_param(CESP_AVAIL_SOCKET_DATA|(port32<<16), CESP_RESP_TCP_SERVER_CREATE))
+        return 0;
+    return rx_buffer[0]?true:false;
+
+}
+
+void esp32_spi_server_stop()
+{
+    esp32_transfer_no_param(CESP_TCP_SERVER_STOP, CESP_RESP_TCP_SERVER_STOP);
+}
+
+uint8_t esp32_spi_server_accept(bool* is_server_alive)
+{
+    if(!esp32_transfer_no_param(CESP_TCP_SERVER_ACCEPT, CESP_RESP_TCP_SERVER_ACCEPT))
+        return esp32_spi_bad_socket();
+    if(is_server_alive)
+        *is_server_alive = rx_buffer[1]?true:false;
+    return rx_buffer[0];
 }

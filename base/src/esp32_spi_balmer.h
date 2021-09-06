@@ -82,15 +82,20 @@ int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_
 bool esp32_spi_socket_connected(uint8_t socket_num);
 //Пишем данные в сокет.
 //return - количество записанных данных.
-uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len);
+uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive = nullptr);
 //Количество данных, доступных для чтения в этом сокете
 uint16_t esp32_spi_socket_available(uint8_t socket_num);
 //Читаем данные из сокета
 //return - количество прочитанных данных.
-uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size);
+uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bool* is_client_alive = nullptr);
 int8_t esp32_spi_socket_close(uint8_t socket_num);
 
 const char* wlan_enum_to_str(esp32_wlan_enum_t x);
 
 //return socket
 uint8_t connect_server_port_tcp(const char *host, uint16_t port);
+
+bool esp32_spi_server_create(uint16_t port);
+void esp32_spi_server_stop();
+//return socket
+uint8_t esp32_spi_server_accept(bool* is_server_alive = nullptr);
