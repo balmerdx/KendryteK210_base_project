@@ -7,7 +7,7 @@
 #include <spi.h>
 #include <gpiohs.h>
 
-#include "esp32_spi_balmer.h"
+#include "esp32_spi.h"
 #include "../../Maixduino_esp32/main/Esp32CommandList.h"
 
 static const bool debug = false;

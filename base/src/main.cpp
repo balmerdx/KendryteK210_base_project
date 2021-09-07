@@ -6,7 +6,7 @@
 //#include <bsp.h>
 #include <spi.h>
 
-#include "esp32_spi_balmer.h"
+#include "esp32/esp32_spi.h"
 #include "wifi_passw.h"
 
 static void scan_WiFi()
