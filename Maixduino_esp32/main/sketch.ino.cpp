@@ -36,7 +36,7 @@
 
 #define SPI_BUFFER_LEN SPI_MAX_DMA_LEN
 
-bool debug = true;
+bool debug = false;
 
 uint8_t* commandBuffer;
 uint8_t* responseBuffer;
@@ -90,6 +90,10 @@ void setup() {
 void setupWiFi() {
   if (debug)  ets_printf("*** SPIS\n");
   SPIS.begin();
+
+#ifdef USE_2SPI
+  SPIM.begin();
+#endif  
   
   commandBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);
   responseBuffer = (uint8_t*)heap_caps_malloc(SPI_BUFFER_LEN, MALLOC_CAP_DMA);
@@ -117,15 +121,11 @@ void loop() {
   memset(responseBuffer, 0x00, SPI_BUFFER_LEN);
   int responseLength = CommandHandler.handle(commandBuffer, responseBuffer);
 
-  //test code
-/*  
-  int responseLength = commandLength;
-  for(int i=0; i<commandLength; i++)
-    //responseBuffer[i] = commandBuffer[i] ^ 0xFF;
-    responseBuffer[i] = commandBuffer[i] + 1;
-*/    
-
+#ifdef USE_2SPI
+  SPIM.send(responseBuffer, responseLength);
+#else
   SPIS.transfer(responseBuffer, NULL, responseLength);
+#endif  
 
   if (debug) {
     dumpBuffer("RESPONSE", responseBuffer, responseLength);
@@ -166,66 +166,9 @@ void TestPins()
   }
 }
 
-#include <driver/spi_common.h>
-#include <driver/spi_master.h>
-
-void spi_master_send(spi_device_handle_t spi, const uint8_t *data, int len)
-{
-    esp_err_t ret;
-    spi_transaction_t t;
-    if (len==0) return;             //no need to send anything
-    memset(&t, 0, sizeof(t));       //Zero out the transaction
-    t.length=len*8;                 //Len is in bytes, transaction length is in bits.
-    t.tx_buffer=data;               //Data
-    ret=spi_device_polling_transmit(spi, &t);  //Transmit!
-    assert(ret==ESP_OK);            //Should have had no issues.
-}
-
 void TestSpi()
 {
-  const int PIN_NUM_MISO = -1;
-  const int PIN_NUM_MOSI = 13;
-  const int PIN_NUM_CLK = 14;
-  const int PIN_NUM_CS = 15;
-  const spi_dma_chan_t DMA_CHAN = 2;
-
-  esp_err_t ret;
-  spi_device_handle_t spi;
-  spi_bus_config_t buscfg={
-      .mosi_io_num=PIN_NUM_MOSI,
-      .miso_io_num=PIN_NUM_MISO,
-      .sclk_io_num=PIN_NUM_CLK,
-      .quadwp_io_num=-1,
-      .quadhd_io_num=-1,
-      .max_transfer_sz=0, //4094
-      .flags = 0,
-      .intr_flags = 0
-  };
-  spi_device_interface_config_t devcfg={
-      .command_bits = 0,
-      .address_bits = 0,
-      .dummy_bits = 0,
-      .mode=0,                                //SPI mode 0
-      .duty_cycle_pos = 0,
-      .cs_ena_pretrans = 0,
-      .cs_ena_posttrans = 0,
-      .clock_speed_hz=SPI_MASTER_FREQ_80M,
-      //.clock_speed_hz=8*1000*1000,           //Clock out at 10 KHz
-      .input_delay_ns = 0,
-      .spics_io_num=PIN_NUM_CS,               //CS pin
-      .flags = 0,
-      .queue_size=7,                          //We want to be able to queue 7 transactions at a time
-      .pre_cb = 0,
-      .post_cb = 0
-  };
-
-  //Initialize the SPI bus
-  ret=spi_bus_initialize(HSPI_HOST, &buscfg, DMA_CHAN);
-  ESP_ERROR_CHECK(ret);
-  //Attach the LCD to the SPI bus
-  ret=spi_bus_add_device(HSPI_HOST, &devcfg, &spi);
-  ESP_ERROR_CHECK(ret);
-
+  SPIM.begin();
   TickType_t tick = configTICK_RATE_HZ; //Half second
   const int data_size = 32;
   const int data_size_bytes = data_size*4;
@@ -238,7 +181,7 @@ void TestSpi()
       for(uint32_t i=0; i<data_size; i++)
         data[i] = idx+i;
       printf("%x\n", idx);
-      spi_master_send(spi, (const uint8_t*)data, data_size_bytes);
+      SPIM.send((const uint8_t*)data, data_size_bytes);
       idx += 0x100;
     }
     vTaskDelay(tick);

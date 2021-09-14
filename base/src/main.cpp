@@ -10,8 +10,8 @@
 #include "main.h"
 #include "MessageDebug/MessageDebug.h"
 #include "esp32/esp32_spi.h"
-#include "esp32_tests.h"
 #include "esp32/spi2_slave.h"
+#include "esp32_tests.h"
 
 //12 - blue
 //13 - green
@@ -28,18 +28,7 @@ void OnLineReceived(const char* str)
 }
 
 bool esp32_transfer(const uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer, size_t rx_len);
-
-void spi_slave_init()
-{
-    int SPI_SLAVE_CS_PIN = 15;
-    int SPI_SLAVE_CLK_PIN = 13;
-    int SPI_SLAVE_MOSI_PIN = 14;
-    fpioa_set_function(SPI_SLAVE_CS_PIN, FUNC_SPI_SLAVE_SS);
-    fpioa_set_function(SPI_SLAVE_CLK_PIN, FUNC_SPI_SLAVE_SCLK);
-    fpioa_set_function(SPI_SLAVE_MOSI_PIN, FUNC_SPI_SLAVE_D0);
-    spi2_slave_config();
-    return;
-}
+void spi_slave_init();
 
 void TestSlaveSpi()
 {
@@ -131,6 +120,8 @@ int main(void)
 {
     //Ждем, пока подключится терминал
     msleep(300);
+
+    printf("byte swap %x\n", __builtin_bswap32(0x01020304));
 
     //TestFastSpi();
     //TestSlaveSpi();

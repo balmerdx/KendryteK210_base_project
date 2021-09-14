@@ -3,12 +3,18 @@
 #include <sysctl.h>
 #include <fpioa.h>
 #include <sleep.h>
-//#include <bsp.h>
 #include <spi.h>
 #include <gpiohs.h>
 
 #include "esp32_spi.h"
+#include "spi2_slave.h"
+
 #include "../../Maixduino_esp32/main/Esp32CommandList.h"
+
+//Используем SPI2 для передачи данных ESP32->K210
+//А SPI0 тогда используется только для передачи K210->ESP32
+//Так как передачи однонаправленные, можно добиться сильно большей тактовой частоты
+#define USE_SPI_SLAVE
 
 static const bool debug = false;
 
@@ -24,14 +30,27 @@ static const bool debug = false;
 
 #define ESP32_CS_PIN    25
 #define ESP32_SCLK_PIN  27
+
+#ifdef USE_SPI_SLAVE
+#define ESP32_MOSI_PIN  26
+#else
 #define ESP32_MOSI_PIN  28
 #define ESP32_MISO_PIN  26
-/*
-#define ESP32_CS_PIN    15
-#define ESP32_SCLK_PIN  13
-#define ESP32_MOSI_PIN  14
-#define ESP32_MISO_PIN  12
-*/
+#endif
+
+#ifdef USE_SPI_SLAVE
+void spi_slave_init()
+{
+    int SPI_SLAVE_CS_PIN = 15;
+    int SPI_SLAVE_CLK_PIN = 13;
+    int SPI_SLAVE_MOSI_PIN = 14;
+    fpioa_set_function(SPI_SLAVE_CS_PIN, FUNC_SPI_SLAVE_SS);
+    fpioa_set_function(SPI_SLAVE_CLK_PIN, FUNC_SPI_SLAVE_SCLK);
+    fpioa_set_function(SPI_SLAVE_MOSI_PIN, FUNC_SPI_SLAVE_D0);
+    spi2_slave_config();
+}
+#endif
+
 #define BUFFER_SIZE 4094
 
 static uint8_t cs_num, rst_num, rdy_num;
@@ -78,13 +97,20 @@ void esp32_spi_init()
 
     gpiohs_set_drive_mode(rdy_num, GPIO_DM_INPUT); //ready
 
+#ifdef USE_SPI_SLAVE
+    spi_slave_init();
+
+    fpioa_set_function(ESP32_SCLK_PIN, FUNC_SPI0_SCLK);
+    fpioa_set_function(ESP32_MOSI_PIN, FUNC_SPI0_D0);
+    spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 32, 1);
+    spi_set_clk_rate(SPI_DEVICE_0, 35*1000000); //Для пинов на плате максимальная скорость
+#else
     fpioa_set_function(ESP32_SCLK_PIN, FUNC_SPI0_SCLK);
     fpioa_set_function(ESP32_MOSI_PIN, FUNC_SPI0_D0);
     fpioa_set_function(ESP32_MISO_PIN, FUNC_SPI0_D1);
-
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 32, 1);
     spi_set_clk_rate(SPI_DEVICE_0, 9000000);
-    //spi_set_clk_rate(SPI_DEVICE_0, 35*1000000); //Для пинов на плате максимальная скорость
+#endif    
 
     gpiohs_set_drive_mode(cs_num, GPIO_DM_OUTPUT);
     gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
@@ -140,7 +166,15 @@ bool esp32_transfer(const uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer,
         return true;
 
     //get response
-    ready = esp32_spi_wait_for_ready(GPIO_PV_LOW, 10 * 1000000);
+    const uint64_t response_timeout_us = 10 * 1000000;
+#ifdef USE_SPI_SLAVE
+    if(!spi2_slave_receive4(rx_buffer, rx_len, response_timeout_us))
+    {
+        if(debug) printf("response spi2_slave_receive4 fail\n");
+        return false;
+    }
+#else
+    ready = esp32_spi_wait_for_ready(GPIO_PV_LOW, response_timeout_us);
     if(ready<0)
     {
         if(debug) printf("response esp32_spi_wait_for_ready(0) fail\n");
@@ -158,6 +192,7 @@ bool esp32_transfer(const uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer,
 
     spi_receive_data_standard(SPI_DEVICE_0, SPI_CHIP_SELECT_0, NULL, 0, rx_buffer, rx_len);
     gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
+#endif    
 
     if(debug)
         dump_buffer("receive ", rx_buffer, rx_len);
