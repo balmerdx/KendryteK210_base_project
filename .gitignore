@@ -1,3 +1,5 @@
-base/build
 base/src/wifi_passw.h
+base/build
+additional/build
+bterminal/build
 tests/**/build

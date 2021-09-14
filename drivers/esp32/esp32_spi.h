@@ -40,6 +40,8 @@ inline uint8_t esp32_spi_bad_socket() { return 0xFF; }
 
 size_t esp32_round_up4(size_t s);
 
+void dump_buffer(const char* label, const uint8_t data[], int length);
+
 void esp32_spi_init();
 
 esp32_wlan_enum_t esp32_spi_status();

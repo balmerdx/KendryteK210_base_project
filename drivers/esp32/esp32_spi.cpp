@@ -12,14 +12,26 @@
 
 static const bool debug = false;
 
-
-#define ESP32_CS        FUNC_GPIOHS10
 #define ESP32_RST       FUNC_GPIOHS11
 #define ESP32_RDY       FUNC_GPIOHS12
+#define ESP32_CS        FUNC_GPIOHS10
 #define ESP32_MOSI      FUNC_GPIOHS13
 #define ESP32_MISO      FUNC_GPIOHS14
 #define ESP32_SCLK      FUNC_GPIOHS15
 
+#define ESP32_RST_PIN   8
+#define ESP32_RDY_PIN   9
+
+#define ESP32_CS_PIN    25
+#define ESP32_SCLK_PIN  27
+#define ESP32_MOSI_PIN  28
+#define ESP32_MISO_PIN  26
+/*
+#define ESP32_CS_PIN    15
+#define ESP32_SCLK_PIN  13
+#define ESP32_MOSI_PIN  14
+#define ESP32_MISO_PIN  12
+*/
 #define BUFFER_SIZE 4094
 
 static uint8_t cs_num, rst_num, rdy_num;
@@ -32,11 +44,33 @@ extern "C"
 void spi_send_data_normal(spi_device_num_t spi_num, spi_chip_select_t chip_select, const uint8_t *tx_buff, size_t tx_len);
 }
 
+void dump_buffer(const char* label, const uint8_t data[], int length) {
+  printf("%s: ", label);
+
+  int max_print_length = 32;
+  int print_length = length;
+  if(length > max_print_length)
+    print_length = max_print_length;
+
+  for (int i = 0; i < print_length; i++)
+  {
+    printf("%02x", data[i]);
+    if(i%4==3)
+      printf(" ");
+  }
+
+  if(length > max_print_length)
+    printf(" total len=%i", length);
+
+  printf("\r\n");
+}
+
+
 void esp32_spi_init()
 {
-    fpioa_set_function(25, ESP32_CS);
-    fpioa_set_function(8, ESP32_RST);
-    fpioa_set_function(9, ESP32_RDY);
+    fpioa_set_function(ESP32_CS_PIN, ESP32_CS);
+    fpioa_set_function(ESP32_RST_PIN, ESP32_RST);
+    fpioa_set_function(ESP32_RDY_PIN, ESP32_RDY);
 
     cs_num = ESP32_CS - FUNC_GPIOHS0;
     rdy_num = ESP32_RDY - FUNC_GPIOHS0;
@@ -44,12 +78,13 @@ void esp32_spi_init()
 
     gpiohs_set_drive_mode(rdy_num, GPIO_DM_INPUT); //ready
 
-    fpioa_set_function(27, FUNC_SPI0_SCLK);
-    fpioa_set_function(28, FUNC_SPI0_D0);
-    fpioa_set_function(26, FUNC_SPI0_D1);
+    fpioa_set_function(ESP32_SCLK_PIN, FUNC_SPI0_SCLK);
+    fpioa_set_function(ESP32_MOSI_PIN, FUNC_SPI0_D0);
+    fpioa_set_function(ESP32_MISO_PIN, FUNC_SPI0_D1);
 
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 32, 1);
     spi_set_clk_rate(SPI_DEVICE_0, 9000000);
+    //spi_set_clk_rate(SPI_DEVICE_0, 35*1000000); //Для пинов на плате максимальная скорость
 
     gpiohs_set_drive_mode(cs_num, GPIO_DM_OUTPUT);
     gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
@@ -76,7 +111,7 @@ size_t esp32_round_up4(size_t s)
 //max tx_len, rx_len = 4096-4
 //tx_len, rx_len - принудительно делаются кратными 4-м байтам.
 //Предполагается, что размера буфера для этого будет достаточно.
-bool esp32_transfer(uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer, size_t rx_len)
+bool esp32_transfer(const uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer, size_t rx_len)
 {
     tx_len = esp32_round_up4(tx_len);
     rx_len = esp32_round_up4(rx_len);
@@ -125,21 +160,7 @@ bool esp32_transfer(uint8_t* tx_buffer, size_t tx_len, uint8_t* rx_buffer, size_
     gpiohs_set_pin(cs_num, GPIO_PV_HIGH);
 
     if(debug)
-    {
-        printf("receive ");
-        size_t max_bytes_print = 16;
-        size_t bytes_to_print = rx_len;
-        if(rx_len > max_bytes_print)
-            bytes_to_print = max_bytes_print;
-
-        for(size_t i=0;i<bytes_to_print;i++)
-            printf("%02x", (int)rx_buffer[i]);
-
-        if(rx_len > max_bytes_print)
-            printf(" total len=%lu", rx_len);
-
-        printf("\n");
-    }
+        dump_buffer("receive ", rx_buffer, rx_len);
 
     return true;
 }

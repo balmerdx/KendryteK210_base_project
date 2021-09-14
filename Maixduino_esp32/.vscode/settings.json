@@ -23,4 +23,5 @@
         "fstream": "cpp",
         "iosfwd": "cpp"
     }
+    ,"git.enabled": false
 }

@@ -90,4 +90,9 @@ void SPISClass::handleSetupComplete()
   xSemaphoreGiveFromISR(_readySemaphore, NULL);
 }
 
+//hostDevice = VSPI_HOST, dmaChannel = 1, mosiPin=14, misoPin=23, sclkPin=18, csPin=5, readyPin=25
 SPISClass SPIS(VSPI_HOST, 1, 14, 23, 18, 5, 25);
+
+//Тестируем передачу через другие пины (получилась та-же самая скорость 35e6)
+//hostDevice = VSPI_HOST, dmaChannel = 1, mosiPin=13, misoPin=12, sclkPin=14, csPin=15, readyPin=25
+//SPISClass SPIS(HSPI_HOST, 1, 13, 12, 14, 15, 25);

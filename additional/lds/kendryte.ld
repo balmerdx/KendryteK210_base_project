@@ -3,13 +3,15 @@
  * in the target. You can use it to describe which memory regions may be
  * used by the linker, and which memory regions it must avoid.
  */
+ 
 MEMORY
 {
   /*
    * Memory with CPU cache.
    *6M CPU SRAM
+   * last 512 Kb for additional code
    */
-  ram (wxa!ri) : ORIGIN = 0x80000000, LENGTH = (6 * 1024 * 1024)
+  ram (wxa!ri) : ORIGIN = 0x80580000, LENGTH = (512*1024)
   /*
    * Memory without CPU cache
    * 6M CPU SRAM
@@ -252,13 +254,16 @@ SECTIONS
   . = ALIGN(64);
   PROVIDE( _end = ABSOLUTE(.) );
   /* Leave 2 holes for stack & TLS, the size can set in kconfig */
+  /*
   PROVIDE( _heap_start = ABSOLUTE(.) + _stack_size * 2 );
   PROVIDE( _tp0 = (_end + 63) & (-64) );
   PROVIDE( _tp1 = _tp0 + _stack_size );
   PROVIDE( _sp0 = _tp0 + _stack_size );
   PROVIDE( _sp1 = _tp1 + _stack_size );
-
+  */
   /* Heap end is at the end of memory, the memory size can set in kconfig */
+  /*
   PROVIDE( _heap_end = _ram_end - _additional_code_size );
+  */
 }
 
