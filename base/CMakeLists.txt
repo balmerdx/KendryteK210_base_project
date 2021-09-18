@@ -48,5 +48,9 @@ add_source_files(../drivers/TBPipe/*.cpp)
 add_source_files(../drivers/MessageDebug/*.cpp)
 #add_source_files(../drivers/esp8266/*.cpp)
 add_source_files(../drivers/esp32/*.cpp)
+
+header_directories(../drivers/camera/gc0328/include)
+add_source_files(../drivers/camera/gc0328/src/*.c)
+
 include(${SDK_ROOT}/cmake/executable.cmake)
 

@@ -6,6 +6,7 @@
 
 #include "esp32/esp32_spi.h"
 #include "wifi_passw.h"
+#include "main.h"
 
 static void scan_WiFi()
 {

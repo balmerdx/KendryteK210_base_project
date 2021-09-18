@@ -3,15 +3,13 @@
 #include <fpioa.h>
 #include <gpio.h>
 #include <gpiohs.h>
-#include "sysctl.h"
-#include "syscalls.h"
-#include "flash/flash.h"
-#include "sleep.h"
+#include <sysctl.h>
+#include <syscalls.h>
+#include <sleep.h>
 #include "main.h"
 #include "MessageDebug/MessageDebug.h"
 #include "esp32/esp32_spi.h"
 #include "esp32/spi2_slave.h"
-#include "esp32_tests.h"
 
 //12 - blue
 //13 - green
@@ -116,12 +114,76 @@ void TestFastSpi()
 
 }
 
+void print_clocks()
+{
+    struct TS
+    {
+        const char* name;
+        sysctl_clock_t clock;
+    };
+
+    TS t[] = 
+    {
+        {"IN0", SYSCTL_CLOCK_IN0},
+        {"PLL0",SYSCTL_CLOCK_PLL0},
+        {"PLL1",SYSCTL_CLOCK_PLL1},
+        {"PLL2",SYSCTL_CLOCK_PLL2},
+        {"CPU", SYSCTL_CLOCK_CPU},
+        {"DMA", SYSCTL_CLOCK_DMA},
+        {"FFT", SYSCTL_CLOCK_FFT},
+        {"ACLK", SYSCTL_CLOCK_ACLK},
+        {"HCLK", SYSCTL_CLOCK_HCLK},
+        {"SRAM0", SYSCTL_CLOCK_SRAM0},
+        {"SRAM1", SYSCTL_CLOCK_SRAM1},
+        {"ROM", SYSCTL_CLOCK_ROM},
+        {"DVP", SYSCTL_CLOCK_DVP},
+        {"APB0", SYSCTL_CLOCK_APB0},
+        {"APB1", SYSCTL_CLOCK_APB1},
+        {"APB2", SYSCTL_CLOCK_APB2},
+        {"AI", SYSCTL_CLOCK_AI},
+        {"I2S0", SYSCTL_CLOCK_I2S0},
+        {"I2S1", SYSCTL_CLOCK_I2S1},
+        {"I2S2", SYSCTL_CLOCK_I2S2},
+        {"WDT0", SYSCTL_CLOCK_WDT0},
+        {"WDT1", SYSCTL_CLOCK_WDT1},
+        {"SPI0", SYSCTL_CLOCK_SPI0},
+        {"SPI1", SYSCTL_CLOCK_SPI1},
+        {"SPI2", SYSCTL_CLOCK_SPI2},
+        {"SPI3", SYSCTL_CLOCK_SPI3}, //IN0/PLL0
+        {"I2C0", SYSCTL_CLOCK_I2C0},
+        {"I2C1", SYSCTL_CLOCK_I2C1},
+        {"I2C2", SYSCTL_CLOCK_I2C2},
+        //{"TIMER0", SYSCTL_CLOCK_TIMER0}, //IN0/PLL0
+        //{"TIMER1", SYSCTL_CLOCK_TIMER1}, //IN0/PLL0
+        //{"TIMER2", SYSCTL_CLOCK_TIMER2}, //IN0/PLL0
+        //{"GPIO", SYSCTL_CLOCK_GPIO}, //APB0
+        //{"UART1", SYSCTL_CLOCK_UART1}, //APB0
+        //{"UART2", SYSCTL_CLOCK_UART2}, //APB0
+        //{"UART3", SYSCTL_CLOCK_UART3}, //APB0
+        //{"SHA", SYSCTL_CLOCK_SHA}, //APB0
+        {"AES", SYSCTL_CLOCK_AES}, //APB1
+        {"OTP", SYSCTL_CLOCK_OTP}, //APB1
+        {"RTC", SYSCTL_CLOCK_RTC}, //IN0
+    };
+
+    for(size_t i=0; i<sizeof(t)/sizeof(t[0]); i++)
+    {
+        TS& s = t[i];
+        uint32_t freq = sysctl_clock_get_freq(s.clock);
+        printf("clock %s = %u KHz\n", s.name, freq/1000);
+    }
+    //
+}
+
 int main(void) 
 {
     //Ждем, пока подключится терминал
     msleep(300);
+    
+    print_clocks();
+    camera_test();
 
-    printf("byte swap %x\n", __builtin_bswap32(0x01020304));
+    while(1);
 
     //TestFastSpi();
     //TestSlaveSpi();

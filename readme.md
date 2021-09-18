@@ -23,3 +23,4 @@ cmake .. -DPROJ=base
 * https://github.com/kendryte/kendryte-standalone-sdk
 * https://github.com/loboris/ktool
 * https://github.com/sipeed/Maixduino_esp32_fimware/releases
+* https://github.com/PureHing/k210-camera-project

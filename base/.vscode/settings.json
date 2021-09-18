@@ -1,5 +1,5 @@
 {
-    "cmake.configureOnOpen": true,
+    "cmake.configureOnOpen": false,
     "files.associations": {
         "stdio.h": "c",
         "gpio.h": "c",
