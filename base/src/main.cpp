@@ -180,7 +180,7 @@ int main(void)
     //Ждем, пока подключится терминал
     msleep(300);
     
-    print_clocks();
+    //print_clocks();
     camera_test();
 
     while(1);

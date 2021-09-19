@@ -38,6 +38,9 @@ typedef struct __packed
 
 inline uint8_t esp32_spi_bad_socket() { return 0xFF; }
 
+//Максимальное количество данных, которое можно передавать в esp32_spi_socket_write
+uint32_t esp32_spi_max_write_size();
+
 size_t esp32_round_up4(size_t s);
 
 void dump_buffer(const char* label, const uint8_t data[], int length);
@@ -90,7 +93,7 @@ uint16_t esp32_spi_socket_available(uint8_t socket_num);
 //Читаем данные из сокета
 //return - количество прочитанных данных.
 uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bool* is_client_alive = nullptr);
-int8_t esp32_spi_socket_close(uint8_t socket_num);
+bool esp32_spi_socket_close(uint8_t socket_num);
 
 const char* wlan_enum_to_str(esp32_wlan_enum_t x);
 

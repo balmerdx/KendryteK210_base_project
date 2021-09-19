@@ -103,7 +103,10 @@ void esp32_spi_init()
     fpioa_set_function(ESP32_SCLK_PIN, FUNC_SPI0_SCLK);
     fpioa_set_function(ESP32_MOSI_PIN, FUNC_SPI0_D0);
     spi_init(SPI_DEVICE_0, SPI_WORK_MODE_0, SPI_FF_STANDARD, 32, 1);
-    spi_set_clk_rate(SPI_DEVICE_0, 35*1000000); //Для пинов на плате максимальная скорость
+    //spi_set_clk_rate(SPI_DEVICE_0, 35*1000000); //Для пинов на плате максимальная скорость
+    //Немного уменьшили, почему изсенение частоты (как ниже) ухудшает тайминги
+    //sysctl_pll_set_freq(SYSCTL_PLL0, 800000000UL); sysctl_pll_set_freq(SYSCTL_PLL1, 400000000UL);
+    spi_set_clk_rate(SPI_DEVICE_0, 30*1000000);
 #else
     fpioa_set_function(ESP32_SCLK_PIN, FUNC_SPI0_SCLK);
     fpioa_set_function(ESP32_MOSI_PIN, FUNC_SPI0_D0);
@@ -510,14 +513,15 @@ uint16_t esp32_spi_socket_available(uint8_t socket_num)
     return *(uint16_t*)rx_buffer;
 }
 
+uint32_t esp32_spi_max_write_size()
+{
+    return BUFFER_SIZE-4;
+}
+
 uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive)
 {
-    if(len > BUFFER_SIZE-4)
-    {
-        if(is_client_alive)
-            *is_client_alive = true; //Т.к. в реальности не знаем, какой статус.
-        return 0;
-    }
+    if(len > esp32_spi_max_write_size())
+        len = esp32_spi_max_write_size();
 
     tx_buffer[0] = CESP_SEND_SOCKET_DATA;
     tx_buffer[1] = socket_num;
@@ -554,12 +558,12 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bo
     return *(uint16_t*)rx_buffer;
 }
 
-int8_t esp32_spi_socket_close(uint8_t socket_num)
+bool esp32_spi_socket_close(uint8_t socket_num)
 {
     uint32_t sn = socket_num;
     if(!esp32_transfer_no_param(CESP_CLOSE_SOCKET|(sn<<8), CESP_RESP_CLOSE_SOCKET))
-        return 0xFF;
-    return *(uint16_t*)rx_buffer;
+        return false;
+    return rx_buffer[0]?true:false;
 }
 
 uint8_t connect_server_port_tcp(const char *host, uint16_t port)

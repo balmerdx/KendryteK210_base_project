@@ -14,6 +14,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../drivers/TBPipe)
 
 set(SOURCE
     ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/image_utils.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/serial.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/network_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/transport/transport.cpp
@@ -21,3 +22,4 @@ set(SOURCE
   )
 
 add_executable(bterminal ${SOURCE})
+target_link_libraries(bterminal libpng.so)

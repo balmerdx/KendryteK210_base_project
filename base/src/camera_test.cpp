@@ -1,12 +1,24 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <sysctl.h>
 #include <gpiohs.h>
 #include <dvp.h>
 #include <fpioa.h>
 #include <iomem.h>
+#include <sleep.h>
 #include "main.h"
 #include "camera/gc0328/include/gc0328.h"
 #include "camera/gc0328/include/cambus.h"
+
+#include "esp32/esp32_spi.h"
+#include "wifi_passw.h"
+
+uint8_t last_socket;
+void NetInit();
+//Клиент подсоединился к серверу
+bool NetConnected();
+void NetSend(const void* addr, uint32_t bytes_size);
+
 
 //По хорошему перенумеровку GPIO надо бы собрать в одном месте
 //Иначе будут потом ошибки
@@ -67,11 +79,14 @@ void camera_test()
     sysctl_pll_set_freq(SYSCTL_PLL1, 400000000UL);
     io_set_power();
     io_mux_init();
+    NetInit();
 
     uint32_t width = 320;
     uint32_t height = 240;
     uint32_t bpp = 2;
-    void* image_addr = iomem_malloc(width * height * bpp);
+    uint32_t image_bytes_size = width * height * bpp;
+    void* image_addr = iomem_malloc(image_bytes_size);
+    void* image_to_net_addr = malloc(image_bytes_size);
 
     dvp_init(8);
     dvp_set_xclk_rate(24000000);
@@ -106,6 +121,14 @@ void camera_test()
         dvp_config_interrupt(DVP_CFG_START_INT_ENABLE | DVP_CFG_FINISH_INT_ENABLE, 1);
         while (!g_dvp_finish_flag)
             ;
+
+        if(NetConnected())
+        {
+            memcpy(image_to_net_addr, image_addr, image_bytes_size);
+            NetSend(image_to_net_addr, image_bytes_size);
+        }
+
+
         time_count ++;
         if(time_count % 100 == 0)
         {
@@ -114,4 +137,66 @@ void camera_test()
             time_last = time_now;
         }
     }
+}
+
+void NetInit()
+{
+    printf( "NetInit start server\n");
+    esp32_spi_init();
+    esp32_spi_reset();
+    //esp32_set_debug(true);
+    while(!esp32_spi_connect_AP(SSID, PASS, 10))
+    {
+        printf("Connecting to AP %s\n", (const char*)SSID);
+    }
+    printf("Connected\n");
+
+    uint16_t port = 5001;
+    if(!esp32_spi_server_create(port))
+    {
+        printf("NetSend cannot create server\n");
+        while(1);
+    }
+
+    last_socket = esp32_spi_bad_socket();
+}
+
+bool NetConnected()
+{
+    bool is_server_alive;
+    uint8_t socket = esp32_spi_server_accept(&is_server_alive);
+    if(!is_server_alive)
+    {
+        printf("NetConnected Server not alive\n");
+        esp32_spi_server_stop();
+        return false;
+    }
+
+    last_socket = socket;
+
+    return last_socket != esp32_spi_bad_socket();
+}
+
+void NetSend(const void* addr, uint32_t bytes_size)
+{
+    if(last_socket==esp32_spi_bad_socket())
+        return;
+
+    const uint8_t* addr8 = (const uint8_t*)addr;
+    uint32_t offset = 0;
+
+    while(offset < bytes_size)
+    {
+        uint16_t len = esp32_spi_max_write_size();
+        uint32_t len_to_end = bytes_size - offset;
+        if(len_to_end < len)
+            len = len_to_end;
+        bool is_client_alive;
+        uint16_t sended_bytes = esp32_spi_socket_write(last_socket, addr8+offset, len, &is_client_alive);
+        offset += sended_bytes;
+        usleep(300);
+    }
+
+    esp32_spi_socket_close(last_socket);
+    last_socket = esp32_spi_bad_socket();
 }

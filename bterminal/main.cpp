@@ -3,8 +3,10 @@
 #include <stdlib.h>
 #include <sys/select.h>
 #include <string.h>
+#include <vector>
 #include "transport/serial.h"
 #include "transport/network_client.h"
+#include "image_utils.h"
 
 //https://stackoverflow.com/questions/717572/how-do-you-do-non-blocking-console-i-o-on-linux-in-c
 //https://web.archive.org/web/20170407122137/http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
@@ -60,10 +62,45 @@ void test_socket()
     printf("Read complete size=%lu\n", sum_size);
 }
 
+void test_image_from_socket()
+{
+    NetworkClient client;
+    if(!client.open("192.168.1.33", 5001))
+    {
+        printf("Cannot open socket\n");
+        return;
+    }
+    
+    size_t sum_size = 0;
+    std::vector<uint8_t> out;
+    out.reserve(320*240*2);
+    for(int i=0; i<100; i++)
+    {
+        uint8_t buffer[10000];
+        size_t readed_bytes;
+        if(!client.read(buffer, sizeof(buffer), readed_bytes))
+        {
+            printf("Cannot read bytes");
+            return;
+        }
+
+        if(readed_bytes>0)
+        {
+            sum_size += readed_bytes;
+            out.insert(out.end(), buffer, buffer+readed_bytes);
+            printf("%i: readed bytes=%lu\n", i, readed_bytes);
+        }
+
+        usleep(10000);   
+    }
+
+    printf("Read complete size=%lu\n", sum_size);
+    writeImage("out.png", 320, 240, (const uint16_t*)out.data());
+}
+
 int main()
 {
-
-    test_socket();
+    test_image_from_socket();
     return 0;
 
     char *line = NULL;
