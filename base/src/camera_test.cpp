@@ -19,6 +19,24 @@ void NetInit();
 bool NetConnected();
 void NetSend(const void* addr, uint32_t bytes_size);
 
+void TestSquares(uint16_t* out, int width, int height, int div = 16)
+{
+    uint16_t c0 = 0;
+    uint16_t c1 = 0x3F<<5;
+
+    for(int y=0; y<height; y++)
+    for(int x=0; x<width; x++)
+    {
+        uint16_t c = c0;
+        
+        if(((x/div)+(y/div))&1)
+        {
+            c = c1;
+        }
+        out[x+y*width] = c;
+    }
+}
+
 
 //По хорошему перенумеровку GPIO надо бы собрать в одном месте
 //Иначе будут потом ошибки
@@ -91,7 +109,7 @@ void camera_test()
     dvp_init(8);
     dvp_set_xclk_rate(24000000);
     dvp_enable_burst();
-    //dvp_set_output_enable(DVP_OUTPUT_AI, 1);
+    dvp_set_output_enable(DVP_OUTPUT_AI, 0);
     dvp_set_output_enable(DVP_OUTPUT_DISPLAY, 1);
     dvp_set_image_format(DVP_CFG_YUV_FORMAT);
     dvp_set_image_size(320, 240);
@@ -99,7 +117,7 @@ void camera_test()
 
     gc0328_reset();
     gc0328_init();
-    //gc0328_set_framesize(FRAMESIZE_QVGA);
+    gc0328_set_framesize(FRAMESIZE_QVGA);
 
     dvp_set_display_addr((uint32_t)(uint64_t)image_addr);
     dvp_config_interrupt(DVP_CFG_START_INT_ENABLE | DVP_CFG_FINISH_INT_ENABLE, 0);
@@ -125,6 +143,7 @@ void camera_test()
         if(NetConnected())
         {
             memcpy(image_to_net_addr, image_addr, image_bytes_size);
+            //TestSquares((uint16_t*)image_to_net_addr, 320, 240, 1);
             NetSend(image_to_net_addr, image_bytes_size);
         }
 
@@ -185,6 +204,9 @@ void NetSend(const void* addr, uint32_t bytes_size)
     const uint8_t* addr8 = (const uint8_t*)addr;
     uint32_t offset = 0;
 
+    uint64_t timeout_us = 1000*1000;
+    uint64_t time_start = sysctl_get_time_us();
+
     while(offset < bytes_size)
     {
         uint16_t len = esp32_spi_max_write_size();
@@ -195,6 +217,11 @@ void NetSend(const void* addr, uint32_t bytes_size)
         uint16_t sended_bytes = esp32_spi_socket_write(last_socket, addr8+offset, len, &is_client_alive);
         offset += sended_bytes;
         usleep(300);
+
+        uint64_t time_now = sysctl_get_time_us();
+
+        if(time_now-time_start > timeout_us)
+            break;
     }
 
     esp32_spi_socket_close(last_socket);

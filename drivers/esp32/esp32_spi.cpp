@@ -51,7 +51,9 @@ void spi_slave_init()
 }
 #endif
 
-#define BUFFER_SIZE 4094
+//В последних 4-х байтах 4094 какойто мусор при передаче. Уменьшим
+//#define BUFFER_SIZE 4094
+#define BUFFER_SIZE 4090
 
 static uint8_t cs_num, rst_num, rdy_num;
 

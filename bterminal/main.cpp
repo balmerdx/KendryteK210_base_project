@@ -72,11 +72,14 @@ void test_image_from_socket()
     }
     
     size_t sum_size = 0;
+    size_t width = 320;
+    size_t height = 240;
+    size_t req_size = width*height*2;
     std::vector<uint8_t> out;
-    out.reserve(320*240*2);
-    for(int i=0; i<100; i++)
+    out.reserve(req_size);
+    while(sum_size<req_size)
     {
-        uint8_t buffer[10000];
+        uint8_t buffer[100000];
         size_t readed_bytes;
         if(!client.read(buffer, sizeof(buffer), readed_bytes))
         {
@@ -88,18 +91,54 @@ void test_image_from_socket()
         {
             sum_size += readed_bytes;
             out.insert(out.end(), buffer, buffer+readed_bytes);
-            printf("%i: readed bytes=%lu\n", i, readed_bytes);
+            printf("readed bytes=%lu\n", readed_bytes);
         }
 
         usleep(10000);   
     }
 
     printf("Read complete size=%lu\n", sum_size);
-    writeImage("out.png", 320, 240, (const uint16_t*)out.data());
+
+    if(true)
+    {//swap pixels
+        uint16_t* p = (uint16_t*)out.data();
+        for(size_t i=0; i<width*height; i+=2)
+        {
+            std::swap(p[i], p[i+1]);
+            
+        }
+    }
+
+    writeImage("out.png", width, height, (const uint16_t*)out.data());
 }
 
 int main()
 {
+    if(false)
+    {
+        std::vector<uint16_t> out;
+        int width = 320;
+        int height = 240;
+        out.resize(320*240);
+        uint16_t c0 = 0;
+        uint16_t c1 = 0x3F<<5;
+
+        for(int y=0; y<height; y++)
+        for(int x=0; x<width; x++)
+        {
+            uint16_t c = c0;
+            
+            if(((x/16)+(y/16))&1)
+            {
+                c = c1;
+            }
+            out[x+y*width] = c;
+        }
+
+        writeImage("out1.png", width, 240, (const uint16_t*)out.data());
+        return 0;
+    }
+
     test_image_from_socket();
     return 0;
 
