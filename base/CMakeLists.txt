@@ -51,6 +51,8 @@ add_source_files(../drivers/esp32/*.cpp)
 
 header_directories(../drivers/camera/gc0328/include)
 add_source_files(../drivers/camera/gc0328/src/*.c)
+add_source_files(../drivers/stm32_program/*.cpp)
+
 
 include(${SDK_ROOT}/cmake/executable.cmake)
 

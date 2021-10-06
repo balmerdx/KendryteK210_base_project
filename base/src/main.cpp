@@ -10,6 +10,7 @@
 #include "MessageDebug/MessageDebug.h"
 #include "esp32/esp32_spi.h"
 #include "esp32/spi2_slave.h"
+#include "stm32_program/stm32_program.h"
 
 //12 - blue
 //13 - green
@@ -54,45 +55,6 @@ void TestSlaveSpi()
 
 void TestFastSpi()
 {
-    if(false)
-    {//check pins
-        fpioa_function_t ESP32_HSPI_1 = FUNC_GPIOHS16;
-        fpioa_function_t ESP32_HSPI_2 = FUNC_GPIOHS17;
-        fpioa_function_t ESP32_HSPI_3 = FUNC_GPIOHS18;
-        int pin_1 = ESP32_HSPI_1-FUNC_GPIOHS0;
-        int pin_2 = ESP32_HSPI_2-FUNC_GPIOHS0;
-        int pin_3 = ESP32_HSPI_3-FUNC_GPIOHS0;
-        fpioa_set_function(13, ESP32_HSPI_1);
-        fpioa_set_function(14, ESP32_HSPI_2);
-        fpioa_set_function(15, ESP32_HSPI_3);
-
-        gpiohs_set_drive_mode(pin_1, GPIO_DM_INPUT);
-        gpiohs_set_drive_mode(pin_2, GPIO_DM_INPUT);
-        gpiohs_set_drive_mode(pin_3, GPIO_DM_INPUT);
-
-        int old_v1 = 0, old_v2 = 0, old_v3 = 0;
-
-        while(1)
-        {
-            int v1 = gpiohs_get_pin(pin_1)?1:0;
-            int v2 = gpiohs_get_pin(pin_2)?1:0;
-            int v3 = gpiohs_get_pin(pin_3)?1:0;
-
-            if(v1 != old_v1 || v2 != old_v2 || v3 != old_v3)
-            {
-                old_v1 = v1;
-                old_v2 = v2;
-                old_v3 = v3;
-                uint64_t tm_ms = sysctl_get_time_us()/1000;
-                printf("%lu ms: v1=%i v2=%i v3=%i\n", tm_ms, v1, v2, v3);
-
-            }
-            usleep(100);
-        }
-
-    }
-
-
     esp32_spi_init();
     printf("Test fast spi.\n");
 
@@ -175,11 +137,19 @@ void print_clocks()
     //
 }
 
+void stm32_uart_test()
+{
+    printf("stm32_uart_test\n");
+    stm32p_init();
+    stm32p_test_loop();
+}
+
 int main(void) 
 {
     //Ждем, пока подключится терминал
     msleep(300);
     
+    stm32_uart_test();
     //print_clocks();
     camera_test();
 

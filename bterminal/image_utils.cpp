@@ -1,4 +1,5 @@
 #include <malloc.h>
+#include <memory.h>
 #include <png.h>
 #include "image_utils.h"
 
@@ -17,7 +18,7 @@ static void setRGB(uint8_t row[3], uint16_t hexValue)
     row[2] = b;
 }
 
-int writeImage(const char* filename, int width, int height, const uint16_t* buffer)
+static int WriteImage(const char* filename, int width, int height, const void* buffer, int bpp)
 {
 	int code = 0;
 	FILE *fp = NULL;
@@ -79,12 +80,23 @@ int writeImage(const char* filename, int width, int height, const uint16_t* buff
 	row = (png_bytep) malloc(3 * width * sizeof(png_byte));
 
 	// Write image data
-	int x, y;
-	for (y=0 ; y<height ; y++) {
-		for (x=0 ; x<width ; x++) {
-			setRGB(&(row[x*3]), buffer[y*width + x]);
+	if(bpp==24)
+	{
+		const uint8_t* buf8 = (const uint8_t*)buffer;
+		for (int y=0 ; y<height ; y++) {
+			memcpy(row, buf8 + y*width*3, width*3);
+			png_write_row(png_ptr, row);
 		}
-		png_write_row(png_ptr, row);
+	} else
+	if(bpp==16)
+	{
+		const uint16_t* buf16 = (const uint16_t*)buffer;
+		for (int y=0 ; y<height ; y++) {
+			for (int x=0 ; x<width ; x++) {
+				setRGB(&(row[x*3]), buf16[y*width + x]);
+			}
+			png_write_row(png_ptr, row);
+		}
 	}
 
 	// End write
@@ -99,3 +111,12 @@ int writeImage(const char* filename, int width, int height, const uint16_t* buff
 	return code;
 }
 
+int WriteImage16(const char* filename, int width, int height, const void* buffer)
+{
+	return WriteImage(filename, width, height, buffer, 16);
+}
+
+int WriteImage24(const char* filename, int width, int height, const void* buffer)
+{
+	return WriteImage(filename, width, height, buffer, 24);
+}

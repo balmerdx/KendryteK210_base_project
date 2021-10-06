@@ -31,13 +31,15 @@ public:
     void GetBuffer(uint8_t*& data, uint32_t& size, bool* overflow = nullptr);
 
     int BufferSize() const { return buffer_size; }
+
+    uint32_t AvailableBytes() const { return irq_buffer_pos; }
 protected:
     int buffer_size;
     uint8_t* buffer;
     uint8_t* irq_buffer;
     uint8_t* user_buffer;
 
-    uint32_t irq_buffer_pos = 0;
+    volatile uint32_t irq_buffer_pos = 0;
     uint32_t user_buffer_pos = 0;
 
     bool overflow = false;

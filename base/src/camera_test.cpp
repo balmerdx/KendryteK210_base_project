@@ -95,24 +95,31 @@ void camera_test()
     //Совсем небольшое повышение частоты, с 390 МГц до 403 МГц
     sysctl_pll_set_freq(SYSCTL_PLL0, 800000000UL);
     sysctl_pll_set_freq(SYSCTL_PLL1, 400000000UL);
+    sysctl_clock_enable(SYSCTL_CLOCK_AI);
     io_set_power();
     io_mux_init();
     NetInit();
 
     uint32_t width = 320;
     uint32_t height = 240;
-    uint32_t bpp = 2;
-    uint32_t image_bytes_size = width * height * bpp;
+    uint32_t bpp_display = 2;
+    uint32_t bpp_ai = 3;
+    uint32_t image_bytes_size = width * height * bpp_display;
+    uint32_t ai_bytes_size = width * height * bpp_ai;
+
+    bool send_ai = true;
+
     void* image_addr = iomem_malloc(image_bytes_size);
-    void* image_to_net_addr = malloc(image_bytes_size);
+    void* ai_addr = iomem_malloc(ai_bytes_size);
+    void* image_to_net_addr = malloc(send_ai?ai_bytes_size:image_bytes_size);
 
     dvp_init(8);
     dvp_set_xclk_rate(24000000);
     dvp_enable_burst();
-    dvp_set_output_enable(DVP_OUTPUT_AI, 0);
+    dvp_set_output_enable(DVP_OUTPUT_AI, 1);
     dvp_set_output_enable(DVP_OUTPUT_DISPLAY, 1);
     dvp_set_image_format(DVP_CFG_YUV_FORMAT);
-    dvp_set_image_size(320, 240);
+    dvp_set_image_size(width, height);
     cambus_init(8, 2, 41, 40, 0, 0); //DVP SCL(41) SDA(40) pin ->software i2c
 
     gc0328_reset();
@@ -120,6 +127,7 @@ void camera_test()
     gc0328_set_framesize(FRAMESIZE_QVGA);
 
     dvp_set_display_addr((uint32_t)(uint64_t)image_addr);
+    dvp_set_ai_addr((uint32_t)(uint64_t)ai_addr, (uint32_t)((uint64_t)ai_addr + 320 * 240), (uint32_t)((uint64_t)ai_addr + 320 * 240 * 2));
     dvp_config_interrupt(DVP_CFG_START_INT_ENABLE | DVP_CFG_FINISH_INT_ENABLE, 0);
     dvp_disable_auto();
     /* DVP interrupt config */
@@ -142,9 +150,17 @@ void camera_test()
 
         if(NetConnected())
         {
-            memcpy(image_to_net_addr, image_addr, image_bytes_size);
-            //TestSquares((uint16_t*)image_to_net_addr, 320, 240, 1);
-            NetSend(image_to_net_addr, image_bytes_size);
+            if(send_ai)
+            {
+               
+                memcpy(image_to_net_addr, ai_addr, ai_bytes_size);
+                NetSend(image_to_net_addr, ai_bytes_size);
+            } else
+            {
+                memcpy(image_to_net_addr, image_addr, image_bytes_size);
+                //TestSquares((uint16_t*)image_to_net_addr, 320, 240, 1);
+                NetSend(image_to_net_addr, image_bytes_size);
+            }
         }
 
 

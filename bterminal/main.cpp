@@ -2,11 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/select.h>
+#include <sys/time.h>
 #include <string.h>
 #include <vector>
 #include "transport/serial.h"
 #include "transport/network_client.h"
 #include "image_utils.h"
+
+uint64_t time_us()
+{
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;    
+}
 
 //https://stackoverflow.com/questions/717572/how-do-you-do-non-blocking-console-i-o-on-linux-in-c
 //https://web.archive.org/web/20170407122137/http://cc.byexamples.com/2007/04/08/non-blocking-user-input-in-loop-without-ncurses/
@@ -70,13 +78,17 @@ void test_image_from_socket()
         printf("Cannot open socket\n");
         return;
     }
+
+    int bpp = 3;
+    //int bpp = 2;
     
     size_t sum_size = 0;
     size_t width = 320;
     size_t height = 240;
-    size_t req_size = width*height*2;
+    size_t req_size = width*height*bpp;
     std::vector<uint8_t> out;
     out.reserve(req_size);
+    uint64_t start_us = time_us();
     while(sum_size<req_size)
     {
         uint8_t buffer[100000];
@@ -96,20 +108,47 @@ void test_image_from_socket()
 
         usleep(10000);   
     }
+    uint64_t end_us = time_us();
 
+    float dt_seconds = (end_us-start_us)*1e-6f;
     printf("Read complete size=%lu\n", sum_size);
+    printf("Read time=%f \n", dt_seconds);
+    printf("Speed %f MB/sec\n", out.size()/dt_seconds*1e-6f);
 
-    if(true)
-    {//swap pixels
-        uint16_t* p = (uint16_t*)out.data();
-        for(size_t i=0; i<width*height; i+=2)
-        {
-            std::swap(p[i], p[i+1]);
-            
+    if(bpp==2)
+    {
+        if(true)
+        {//swap pixels
+            uint16_t* p = (uint16_t*)out.data();
+            for(size_t i=0; i<width*height; i+=2)
+            {
+                std::swap(p[i], p[i+1]);
+                
+            }
         }
-    }
 
-    writeImage("out.png", width, height, (const uint16_t*)out.data());
+        WriteImage16("out.png", width, height, out.data());
+
+    } else
+    {
+        std::vector<uint8_t> sw;
+        sw.resize(out.size());
+        uint8_t* o = (uint8_t*)sw.data();
+        uint8_t* r = (uint8_t*)out.data();
+        uint8_t* g = r + width*height;
+        uint8_t* b = g + width*height;
+        for(int y=0; y<height; y++)
+        for(int x=0; x<width; x++)
+        {
+            o[0] = *r;
+            o[1] = *g;
+            o[2] = *b;
+            r++; g++; b++;
+            o += 3; 
+        }
+
+        WriteImage24("out.png", width, height, sw.data());
+    }
 }
 
 int main()
@@ -135,7 +174,7 @@ int main()
             out[x+y*width] = c;
         }
 
-        writeImage("out1.png", width, 240, (const uint16_t*)out.data());
+        WriteImage16("out1.png", width, 240, (const uint16_t*)out.data());
         return 0;
     }
 

@@ -1,7 +1,7 @@
 #include "TBPipe/TBPipe.h"
 #include "TBPipe/TBParse.h"
 #include "MessageDebug.h"
-#include "uart.h"
+#include <uart.h>
 #include <new>
 
 #define DEBUG_UART_NUM    UART_DEVICE_3

@@ -10,7 +10,7 @@ static uint64_t time_us()
 }
 #else
 #include <sys/time.h>
-uint64_t time_us()
+static uint64_t time_us()
 {
     struct timeval tv;
     gettimeofday(&tv,NULL);
