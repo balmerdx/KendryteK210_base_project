@@ -166,11 +166,11 @@ void print_received(uint64_t msec=0)
     print_hex(data, size);
 }
 
-static bool stm32p_wait_ack()
+static bool stm32p_wait_ack(uint32_t timeout_ms = default_timeout_ms)
 {
     uint8_t* data;
     uint32_t size;
-    if(!uart_receive(data, size, 1, default_timeout_ms))
+    if(!uart_receive(data, size, 1, timeout_ms))
         return false;
 
     return data[0] == STM32_ACK;
@@ -204,14 +204,8 @@ bool stm32p_activate_bootloader()
     return stm32p_wait_ack();
 }
 
-bool stm32p_read_memory(uint32_t address, uint8_t* read_data, uint32_t read_size)
+static bool stm32p_send_address(uint32_t address)
 {
-    if(read_size>256 || read_size==0)
-        return false;
-
-    if(!stm32p_send_cmd(STM32_CMD_READ_MEMORY))
-        return false;
-
     uint8_t buf[5];
 	buf[0] = address >> 24;
 	buf[1] = (address >> 16) & 0xFF;
@@ -221,6 +215,21 @@ bool stm32p_read_memory(uint32_t address, uint8_t* read_data, uint32_t read_size
     uart_send(buf, 5);
 
     if(!stm32p_wait_ack())
+        return false;
+    return true;
+}
+
+bool stm32p_read_memory(uint32_t address, uint8_t* read_data, uint32_t read_size)
+{
+    if(read_size==0)
+        return true;
+    if(read_size>256)
+        return false;
+
+    if(!stm32p_send_cmd(STM32_CMD_READ_MEMORY))
+        return false;
+
+    if(!stm32p_send_address(address))
         return false;
 
     stm32p_send_cmd((uint8_t)(read_size-1), false);
@@ -235,6 +244,65 @@ bool stm32p_read_memory(uint32_t address, uint8_t* read_data, uint32_t read_size
     return true;
 }
 
+bool stm32p_write_memory(uint32_t address, const uint8_t* write_data, uint32_t write_size)
+{
+    if(write_size==0)
+        return true;
+    if(write_size>256)
+        return false;
+    if(write_size&3)
+        return false;
+
+    if(!stm32p_send_cmd(STM32_CMD_WRITE_MEMORY))
+        return false;
+    if(!stm32p_send_address(address))
+        return false;
+    uint8_t write_size_m1 = (uint8_t)(write_size-1);
+    uint8_t cs = 0;
+    cs ^= write_size_m1;
+    for(uint32_t i=0; i<write_size; i++)
+        cs ^= write_data[i];
+    uart_send(&write_size_m1, 1);
+    uart_send(write_data, write_size);
+    uart_send(&cs, 1);
+
+    return stm32p_wait_ack(100);
+}
+
+bool stm32p_erase(uint32_t start_page, uint32_t num_pages)
+{
+    //Предполагаем, что у нас 64 КБ памяти всего
+    //По 2 КБ одна страница
+    const int max_num_pages = 32;
+    if(num_pages>max_num_pages)
+        return false;
+
+    if(!stm32p_send_cmd(STM32_CMD_EXTENDED_ERASE))
+        return false;
+
+    uint8_t buf[2+2*max_num_pages+1];
+    int i = 0;
+    uint8_t cs = 0;
+
+    buf[i++] = (num_pages-1) >> 8;
+    buf[i++] = (num_pages-1);
+
+    for(int j=0; j<num_pages; j++)
+    {
+        int page_num = start_page + j;
+        buf[i++] = page_num >> 8;
+        buf[i++] = page_num;
+    }
+
+    for(int j=0; j<i; j++)
+        cs ^= buf[j];
+    buf[i++] = cs;
+
+    uart_send(buf, i);
+
+    return stm32p_wait_ack(1000);
+}
+
 void stm32p_test_loop()
 {
     printf("Start stm32p_test_loop\n");
@@ -245,17 +313,43 @@ void stm32p_test_loop()
     stm32p_send_cmd(STM32_CMD_GET, false);
     printf("STM32_CMD_GET\n");
     print_received(10);
+/*
+    if(stm32p_erase(0, 1))
+        printf("erase success\n");
+    else
+        printf("erase fail\n");
+*/
+    uint32_t page_size = 2048;
+    uint32_t address_start_flash = 0x08000000;
 
-    uint32_t address = 0x08000000;
+    if(false)  
+    {
+        uint8_t write_data[256];
+        uint32_t write_size = 16;
+        for(uint32_t i=0; i<write_size; i++)
+            write_data[i] = 0x30-i;
+        if(stm32p_write_memory(address_start_flash, write_data, write_size))
+            printf("write memory success\n");
+        else
+            printf("write memory fail\n");
+    }
+
+    uint32_t address = address_start_flash+page_size*0;
     uint8_t read_data[256];
     uint32_t read_size = 256;
-    if(stm32p_read_memory(address, read_data, read_size))
+
+    for(int i=0; i<4; i++)
     {
-        printf("stm32p_read_memory success\n");
-        print_hex(read_data, read_size);
-    } else
-    {
-        printf("stm32p_read_memory fail\n");
+        printf("%x\n", address);
+        if(stm32p_read_memory(address, read_data, read_size))
+        {
+            print_hex(read_data, read_size);
+        } else
+        {
+            printf("stm32p_read_memory fail\n");
+        }
+
+        address += read_size;
     }
 
     while(1)
