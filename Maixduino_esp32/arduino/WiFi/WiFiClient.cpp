@@ -82,7 +82,10 @@ size_t WiFiClient::write(const uint8_t *buf, size_t size)
 
   int result = send(_socket, (void*)buf, size, MSG_DONTWAIT);
 
+
   if (result < 0) {
+    if(errno==EAGAIN)
+      return 0;
     close(_socket);
     _socket = -1;
     return 0;
@@ -100,7 +103,7 @@ int WiFiClient::available()
   int result = 0;
 
   if (ioctl(_socket, FIONREAD, &result) < 0) {
-    printf("WiFiClient::available _socket=%i errno=%i\n", _socket, (int)errno);
+    //printf("WiFiClient::available _socket=%i errno=%i\n", _socket, (int)errno);
     close(_socket);
     _socket = -1;
     return 0;
@@ -143,7 +146,7 @@ void WiFiClient::stop()
   if (_socket != -1) {
     close(_socket);
     _socket = -1;
-    printf("WiFiClient::stop _socket=-1\n");
+    //printf("WiFiClient::stop _socket=-1\n");
   }
 }
 

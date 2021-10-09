@@ -149,7 +149,7 @@ int main(void)
     //Ждем, пока подключится терминал
     msleep(300);
     
-    stm32_uart_test();
+    //stm32_uart_test();
     //print_clocks();
     camera_test();
 

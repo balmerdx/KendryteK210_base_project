@@ -108,6 +108,14 @@ void test_image_from_socket()
 
         usleep(10000);   
     }
+
+    if(false)
+    {
+        uint8_t buf = 3;
+        size_t sended_bytes;
+        client.write(&buf, 1, sended_bytes);
+    }
+
     uint64_t end_us = time_us();
 
     float dt_seconds = (end_us-start_us)*1e-6f;

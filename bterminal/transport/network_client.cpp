@@ -76,7 +76,7 @@ bool NetworkClient::read(void* buffer, size_t buffer_size, size_t& readed_bytes)
     ssize_t result = recv(_socket, buffer, buffer_size, MSG_DONTWAIT);
 
     if (result <= 0) {
-        if(errno != EWOULDBLOCK)
+        if(errno != EAGAIN)
         {
             close();
             readed_bytes = 0;
@@ -103,6 +103,10 @@ bool NetworkClient::write(const void* buffer, size_t buffer_size, size_t& sended
     int result = send(_socket, buffer, buffer_size, 0);
 
     if (result < 0) {
+        if(errno == EAGAIN) {
+            sended_bytes = 0;
+            return true;
+        }
         close();
         sended_bytes = 0;
         return false;

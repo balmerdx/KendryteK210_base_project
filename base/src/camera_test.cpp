@@ -231,6 +231,12 @@ void NetSend(const void* addr, uint32_t bytes_size)
             len = len_to_end;
         bool is_client_alive;
         uint16_t sended_bytes = esp32_spi_socket_write(last_socket, addr8+offset, len, &is_client_alive);
+
+        if(!is_client_alive)
+        {
+            printf("NetSend is_client_alive==false\n");
+            break;
+        }
         offset += sended_bytes;
         usleep(300);
 
@@ -238,6 +244,22 @@ void NetSend(const void* addr, uint32_t bytes_size)
 
         if(time_now-time_start > timeout_us)
             break;
+    }
+
+    if(false)
+    {
+        while(1)
+        {
+            bool is_client_alive;
+            uint8_t buf[1];
+            uint16_t count = esp32_spi_socket_read(last_socket, buf, sizeof(buf), &is_client_alive);
+            if(!is_client_alive)
+                break;
+            if(count>0)
+                break;
+            usleep(300);
+        }
+        printf("NetSend byte received\n");
     }
 
     esp32_spi_socket_close(last_socket);
