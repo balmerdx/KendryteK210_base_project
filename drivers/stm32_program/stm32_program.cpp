@@ -119,6 +119,11 @@ static void stm32_restart(bool boot_mode = false)
     set_stm32_restart_pin(GPIO_PV_HIGH);
 }
 
+void stm32p_restart()
+{
+    stm32_restart(false);
+}
+
 void stm32p_init()
 {
     int buffer_size = 300;
@@ -191,7 +196,6 @@ static bool stm32p_send_cmd(uint8_t cmd, bool wait_ask=true)
 
 bool stm32p_activate_bootloader()
 {
-    printf("stm32p_activate_bootloader\n");
     stm32_restart(true);
     msleep(30);
     uint8_t* data;

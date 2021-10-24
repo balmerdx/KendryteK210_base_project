@@ -79,8 +79,8 @@ void test_image_from_socket()
         return;
     }
 
-    int bpp = 3;
-    //int bpp = 2;
+    //int bpp = 3;
+    int bpp = 2;
     
     size_t sum_size = 0;
     size_t width = 320;

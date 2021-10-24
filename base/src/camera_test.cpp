@@ -107,7 +107,7 @@ void camera_test()
     uint32_t image_bytes_size = width * height * bpp_display;
     uint32_t ai_bytes_size = width * height * bpp_ai;
 
-    bool send_ai = true;
+    bool send_ai = false;
 
     void* image_addr = iomem_malloc(image_bytes_size);
     void* ai_addr = iomem_malloc(ai_bytes_size);

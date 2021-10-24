@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <vector>
 #include "TBPipe.h"
+#include "TBParse.h"
 
 class FillBuffer
 {

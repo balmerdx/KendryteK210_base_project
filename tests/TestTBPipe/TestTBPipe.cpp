@@ -9,6 +9,8 @@
 #include "FillBuffer.h"
 #include "sleep.h"
 
+void TestTBinParse();
+
 struct PrefixFeedResult
 {
     uint32_t offset;
@@ -412,7 +414,7 @@ void TestTBPipeTimeout()
     TBParse parse(buffer_size, &standart_parser);
     FillBuffer fill(buffer_size*5);
 
-    parse.SetTimeout(100);
+    parse.SetTimeoutMs(100);
 
     printf("TestTBPipeTimeout ");
 
@@ -434,7 +436,7 @@ void TestTBPipeTimeout()
 
         parse.Append(fill.Data(), offset);
         CheckMessages(parse, fill, 0, 1);
-        msleep(parse.Timeout());
+        msleep(parse.TimeoutMs());
         parse.Append(fill.Data()+offset, fill.DataSize()-offset);
 
         TBMessage m = parse.NextMessage();
@@ -457,11 +459,14 @@ void TestTBPipeTimeout()
 
 int main()
 {
+    /*
     TestEsp8266PrefixParser();
     TestStandartPrefixParser();
     TestTBPipe();
     TestTBParse(false);
     TestTBParse(true);
     TestTBPipeTimeout();
+    */
+    TestTBinParse();
     return 0;
 }

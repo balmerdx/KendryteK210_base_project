@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/cdefs.h> //__packed
 #include <vector>
 
 typedef enum {
@@ -36,7 +37,12 @@ typedef struct __packed
     esp32_spi_ap_t aps[0];
 } esp32_spi_aps_list_t;
 
-inline uint8_t esp32_spi_bad_socket() { return 0xFF; }
+enum
+{
+    esp32_bad_socket = 0xFF
+};
+
+inline uint8_t esp32_spi_bad_socket() { return esp32_bad_socket; }
 
 //Максимальное количество данных, которое можно передавать в esp32_spi_socket_write
 uint32_t esp32_spi_max_write_size();
@@ -87,6 +93,7 @@ int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_
 bool esp32_spi_socket_connected(uint8_t socket_num);
 //Пишем данные в сокет.
 //return - количество записанных данных.
+//Даже, если *is_client_alive == false нужно вызывать esp32_spi_socket_close
 uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive = nullptr);
 //Количество данных, доступных для чтения в этом сокете
 uint16_t esp32_spi_socket_available(uint8_t socket_num);
