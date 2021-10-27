@@ -37,12 +37,12 @@ typedef struct __packed
     esp32_spi_ap_t aps[0];
 } esp32_spi_aps_list_t;
 
-enum
+enum class esp32_socket : uint8_t
 {
     esp32_bad_socket = 0xFF
 };
 
-inline uint8_t esp32_spi_bad_socket() { return esp32_bad_socket; }
+inline esp32_socket esp32_spi_bad_socket() { return esp32_socket::esp32_bad_socket; }
 
 //Максимальное количество данных, которое можно передавать в esp32_spi_socket_write
 uint32_t esp32_spi_max_write_size();
@@ -83,31 +83,29 @@ void esp32_spi_reset();
 //Открываем соединение, но не ожидаем, что открытие завершится.
 //Более высокоуровневая функция - connect_server_port_tcp
 //return socket
-uint8_t esp32_spi_socket_open_ip(const uint8_t ip[4],
+esp32_socket esp32_spi_socket_open_ip(const uint8_t ip[4],
                              uint16_t port, esp32_socket_mode_enum_t conn_mode);
-uint8_t esp32_spi_socket_open(const char* hostname,
+esp32_socket esp32_spi_socket_open(const char* hostname,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode);
 
-int8_t esp32_spi_socket_connect(uint8_t socket_num, uint8_t *dest, uint8_t dest_type, uint16_t port, esp32_socket_mode_enum_t conn_mod);
-
-bool esp32_spi_socket_connected(uint8_t socket_num);
+bool esp32_spi_socket_connected(esp32_socket socket_num);
 //Пишем данные в сокет.
 //return - количество записанных данных.
 //Даже, если *is_client_alive == false нужно вызывать esp32_spi_socket_close
-uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive = nullptr);
+uint16_t esp32_spi_socket_write(esp32_socket socket_num, const void* buffer, uint16_t len, bool* is_client_alive = nullptr);
 //Количество данных, доступных для чтения в этом сокете
-uint16_t esp32_spi_socket_available(uint8_t socket_num);
+uint16_t esp32_spi_socket_available(esp32_socket socket_num);
 //Читаем данные из сокета
 //return - количество прочитанных данных.
-uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bool* is_client_alive = nullptr);
-bool esp32_spi_socket_close(uint8_t socket_num);
+uint16_t esp32_spi_socket_read(esp32_socket socket_num, void* buff, uint16_t size, bool* is_client_alive = nullptr);
+bool esp32_spi_socket_close(esp32_socket socket_num);
 
 const char* wlan_enum_to_str(esp32_wlan_enum_t x);
 
 //return socket
-uint8_t connect_server_port_tcp(const char *host, uint16_t port);
+esp32_socket connect_server_port_tcp(const char *host, uint16_t port);
 
 bool esp32_spi_server_create(uint16_t port);
 void esp32_spi_server_stop();
 //return socket
-uint8_t esp32_spi_server_accept(bool* is_server_alive = nullptr);
+esp32_socket esp32_spi_server_accept(bool* is_server_alive = nullptr);

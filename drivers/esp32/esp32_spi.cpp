@@ -453,7 +453,7 @@ dest_type
 return socket_num
 return 255 if fail
 */
-static uint8_t esp32_spi_socket_open_internal(const uint8_t *dest, uint8_t dest_type,
+static esp32_socket esp32_spi_socket_open_internal(const uint8_t *dest, uint8_t dest_type,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 {
     size_t len = 0;
@@ -481,18 +481,18 @@ static uint8_t esp32_spi_socket_open_internal(const uint8_t *dest, uint8_t dest_
     }
 
     if(!esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_START_SOCKET_CLIENT))
-        return 0xFF;
+        return esp32_socket::esp32_bad_socket;
 
-    return rx_buffer[0];
+    return (esp32_socket)rx_buffer[0];
 }
 
-uint8_t esp32_spi_socket_open_ip(const uint8_t ip[4],
+esp32_socket esp32_spi_socket_open_ip(const uint8_t ip[4],
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 {
     return esp32_spi_socket_open_internal(ip, 0, port, conn_mode);
 }
 
-uint8_t esp32_spi_socket_open(const char* hostname,
+esp32_socket esp32_spi_socket_open(const char* hostname,
                              uint16_t port, esp32_socket_mode_enum_t conn_mode)
 
 {
@@ -520,13 +520,13 @@ uint32_t esp32_spi_max_write_size()
     return BUFFER_SIZE-4;
 }
 
-uint16_t esp32_spi_socket_write(uint8_t socket_num, const void* buffer, uint16_t len, bool* is_client_alive)
+uint16_t esp32_spi_socket_write(esp32_socket socket_num, const void* buffer, uint16_t len, bool* is_client_alive)
 {
     if(len > esp32_spi_max_write_size())
         len = esp32_spi_max_write_size();
 
     tx_buffer[0] = CESP_SEND_SOCKET_DATA;
-    tx_buffer[1] = socket_num;
+    tx_buffer[1] = (uint8_t)socket_num;
     memcpy(tx_buffer+2, &len, 2);
     memcpy(tx_buffer+4, buffer, len);
 
@@ -560,15 +560,15 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bo
     return *(uint16_t*)rx_buffer;
 }
 
-bool esp32_spi_socket_close(uint8_t socket_num)
+bool esp32_spi_socket_close(esp32_socket socket_num)
 {
-    uint32_t sn = socket_num;
+    uint32_t sn = (uint32_t)socket_num;
     if(!esp32_transfer_no_param(CESP_CLOSE_SOCKET|(sn<<8), CESP_RESP_CLOSE_SOCKET))
         return false;
     return rx_buffer[0]?true:false;
 }
 
-uint8_t connect_server_port_tcp(const char *host, uint16_t port)
+esp32_socket connect_server_port_tcp(const char *host, uint16_t port)
 {
     uint8_t ip[4];
     if (!esp32_spi_get_host_by_name(host, ip))
@@ -594,7 +594,7 @@ void esp32_spi_server_stop()
     esp32_transfer_no_param(CESP_TCP_SERVER_STOP, CESP_RESP_TCP_SERVER_STOP);
 }
 
-uint8_t esp32_spi_server_accept(bool* is_server_alive)
+esp32_socket esp32_spi_server_accept(bool* is_server_alive)
 {
     if(!esp32_transfer_no_param(CESP_TCP_SERVER_ACCEPT, CESP_RESP_TCP_SERVER_ACCEPT))
     {
@@ -604,5 +604,5 @@ uint8_t esp32_spi_server_accept(bool* is_server_alive)
 
     if(is_server_alive)
         *is_server_alive = rx_buffer[1]?true:false;
-    return rx_buffer[0];
+    return (esp32_socket)rx_buffer[0];
 }

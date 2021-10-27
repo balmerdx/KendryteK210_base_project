@@ -83,7 +83,7 @@ static void test_connection()
 
 static void test_socket()
 {
-    uint8_t socket = connect_server_port_tcp("dl.sipeed.com", 80);
+    esp32_socket socket = connect_server_port_tcp("dl.sipeed.com", 80);
     if(socket == esp32_spi_bad_socket())
         return;
 
@@ -149,7 +149,7 @@ static void test_socket()
 static void test_download_speed()
 {
     const char* site = "dl.sipeed.com";
-    uint8_t socket = connect_server_port_tcp(site, 80);
+    esp32_socket socket = connect_server_port_tcp(site, 80);
     if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
@@ -195,7 +195,7 @@ static void test_download_speed()
     printf("close socket status: %i\r\n", close_status);
 }
 
-static void read_many_from_socket(uint8_t socket, uint64_t time_us = 5000000)
+static void read_many_from_socket(esp32_socket socket, uint64_t time_us = 5000000)
 {
     const uint32_t LEN = 4000;
     int total = 0;
@@ -231,7 +231,7 @@ static void read_many_from_socket(uint8_t socket, uint64_t time_us = 5000000)
 static void test_download_speed_iperf()
 {
     const char* site = "192.168.1.48";
-    uint8_t socket = connect_server_port_tcp(site, 5001);
+    esp32_socket socket = connect_server_port_tcp(site, 5001);
     if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
@@ -259,7 +259,7 @@ static void test_download_speed_iperf()
 static void test_upload_speed_iperf()
 {
     const char* site = "192.168.1.48";
-    uint8_t socket = connect_server_port_tcp(site, 5001);
+    esp32_socket socket = connect_server_port_tcp(site, 5001);
     if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
@@ -305,7 +305,7 @@ static void test_upload_speed_iperf()
 static void test_download_speed_short()
 {
     const char* site = "192.168.1.48";
-    uint8_t socket = connect_server_port_tcp(site, 5001);
+    esp32_socket socket = connect_server_port_tcp(site, 5001);
     if(socket == esp32_spi_bad_socket())
     {
         printf("Cannot connect to server: %s", site);
@@ -366,7 +366,7 @@ void test_server()
     while(1)
     {
         bool is_server_alive;
-        uint8_t socket = esp32_spi_server_accept(&is_server_alive);
+        esp32_socket socket = esp32_spi_server_accept(&is_server_alive);
         if(!is_server_alive)
         {
             printf("Server not alive\n");

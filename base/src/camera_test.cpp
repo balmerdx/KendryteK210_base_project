@@ -13,11 +13,11 @@
 #include "esp32/esp32_spi.h"
 #include "wifi_passw.h"
 
-uint8_t last_socket;
-void NetInit();
+static esp32_socket last_socket;
+static void NetInit();
 //Клиент подсоединился к серверу
-bool NetConnected();
-void NetSend(const void* addr, uint32_t bytes_size);
+static bool NetConnected();
+static void NetSend(const void* addr, uint32_t bytes_size);
 
 void TestSquares(uint16_t* out, int width, int height, int div = 16)
 {
@@ -199,7 +199,7 @@ void NetInit()
 bool NetConnected()
 {
     bool is_server_alive;
-    uint8_t socket = esp32_spi_server_accept(&is_server_alive);
+    esp32_socket socket = esp32_spi_server_accept(&is_server_alive);
     if(!is_server_alive)
     {
         printf("NetConnected Server not alive\n");
