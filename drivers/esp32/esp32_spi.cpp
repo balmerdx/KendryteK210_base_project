@@ -481,7 +481,7 @@ static esp32_socket esp32_spi_socket_open_internal(const uint8_t *dest, uint8_t 
     }
 
     if(!esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_START_SOCKET_CLIENT))
-        return esp32_socket::esp32_bad_socket;
+        return esp32_socket::bad;
 
     return (esp32_socket)rx_buffer[0];
 }
@@ -499,17 +499,17 @@ esp32_socket esp32_spi_socket_open(const char* hostname,
     return esp32_spi_socket_open_internal((const uint8_t*)hostname, 1, port, conn_mode);
 }
 
-bool esp32_spi_socket_connected(uint8_t socket_num)
+bool esp32_spi_socket_connected(esp32_socket socket_num)
 {
-    uint32_t sn = socket_num;
+    uint32_t sn = (uint32_t)socket_num;
     if(!esp32_transfer_no_param(CESP_GET_SOCKET_STATE|(sn<<8), CESP_RESP_GET_SOCKET_STATE))
         return false;
     return rx_buffer[0];
 }
 
-uint16_t esp32_spi_socket_available(uint8_t socket_num)
+uint16_t esp32_spi_socket_available(esp32_socket socket_num)
 {
-    uint32_t sn = socket_num;
+    uint32_t sn = (uint32_t)socket_num;
     if(!esp32_transfer_no_param(CESP_AVAIL_SOCKET_DATA|(sn<<8), CESP_RESP_AVAIL_SOCKET_DATA))
         return 0;
     return *(uint16_t*)rx_buffer;
@@ -537,7 +537,7 @@ uint16_t esp32_spi_socket_write(esp32_socket socket_num, const void* buffer, uin
     return *(uint16_t*)rx_buffer;
 }
 
-uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bool* is_client_alive)
+uint16_t esp32_spi_socket_read(esp32_socket socket_num, void* buff, uint16_t size, bool* is_client_alive)
 {
     if(size > BUFFER_SIZE-4)
     {
@@ -546,7 +546,7 @@ uint16_t esp32_spi_socket_read(uint8_t socket_num, void* buff, uint16_t size, bo
         return 0;
     }
     tx_buffer[0] = CESP_READ_SOCKET_DATA;
-    tx_buffer[1] = socket_num;
+    tx_buffer[1] = (uint8_t)socket_num;
     memcpy(tx_buffer+2, &size, 2);
 
     if(!esp32_transfer(tx_buffer, 4, rx_buffer, size+4))

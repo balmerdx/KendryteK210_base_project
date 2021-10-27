@@ -22,8 +22,15 @@ public:
 
     //Выставляется если не сошлось CRC либо размер команды больше, чем размер буфера
     bool ParseFailed() const { return parse_failed; }
-    //
-    void Reset();
+
+    //Очищает от данных
+    void Clear();
+
+    //Количество байт, которое можно записать в BufferInplace
+    //не более, чем MaxAppendSize байт
+    //после записи необходимо вызвать AppendInplace с количеством записанных байт
+    uint8_t* BufferInplace() { return buffer + buffer_amount; }
+    void AppendInplace(uint32_t size);
 protected:
     bool ParseHeader(uint64_t header);
 

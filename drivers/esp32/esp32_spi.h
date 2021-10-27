@@ -39,10 +39,10 @@ typedef struct __packed
 
 enum class esp32_socket : uint8_t
 {
-    esp32_bad_socket = 0xFF
+    bad = 0xFF
 };
 
-inline esp32_socket esp32_spi_bad_socket() { return esp32_socket::esp32_bad_socket; }
+inline esp32_socket esp32_spi_bad_socket() { return esp32_socket::bad; }
 
 //Максимальное количество данных, которое можно передавать в esp32_spi_socket_write
 uint32_t esp32_spi_max_write_size();

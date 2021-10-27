@@ -29,6 +29,21 @@ void TBinParse::Append(uint8_t* data, uint32_t size)
     buffer_amount += size;
 }
 
+void TBinParse::AppendInplace(uint32_t size)
+{
+    if(size==0)
+        return;
+
+    if(buffer_amount + size > buffer_size)
+    {
+        parse_failed = true;
+        return;
+    }
+
+    buffer_amount += size;
+}
+
+
 TBinMessage TBinParse::NextMessage()
 {
     TBinMessage message = {};
@@ -108,4 +123,12 @@ uint64_t TBinFillHeader(uint16_t packet_id, uint32_t data_size)
                 ^ ((data_size>>16)&0xFFFF)
                 ^ packet_id;
     return head | (crc<<48);
+}
+
+void TBinParse::Clear()
+{
+    buffer_amount = 0;
+    buffer_pos = 0;
+    bin_message_size = 0;
+    bin_message_command = 0;
 }
