@@ -5,9 +5,18 @@
 #include <typeinfo>
 #include <vector>
 #include <string>
+#include <thread>
 #include "TBPipe.h"
 #include "FillBuffer.h"
 #include "sleep.h"
+
+#include <sys/time.h>
+static uint64_t time_us()
+{
+    struct timeval tv;
+    gettimeofday(&tv,NULL);
+    return tv.tv_sec*(uint64_t)1000000+tv.tv_usec;
+}
 
 void TestTBinParse();
 
@@ -136,25 +145,34 @@ void TestTBPipe()
     TBPipe pipe(buffer_size);
 
     std::vector<uint8_t> data;
+    std::vector<uint8_t> out_data;
 
     printf("TestTBPipe started\n");
-    for(int sz=0; sz<=buffer_size; sz++)
+    for(int sz=0; sz<buffer_size; sz++)
     {
+        out_data.clear();
         data.resize(sz);
         for(size_t i=0; i<sz; i++)
         {
             data[i] = rand();
-            pipe.AppendByte(data[i]);
         }
 
-        uint8_t* out_data;
-        uint32_t out_size;
-        bool overflow;
-        pipe.GetBuffer(out_data, out_size, &overflow);
+        uint32_t written = pipe.Write(data.data(), data.size());
+        bool overflow = written < data.size();
 
-        if(sz!=out_size)
+        for(int i=0; i<2; i++)
         {
-            printf("Error! in_size=%i out_size=%u\n", sz, out_size);
+            uint8_t* out_ptr;
+            uint32_t out_size;
+            pipe.Read(out_ptr, out_size);
+            if(out_size==0)
+                break;
+            out_data.insert(out_data.end(), out_ptr, out_ptr+out_size);
+        }
+
+        if(sz!=out_data.size())
+        {
+            printf("Error! in_size=%i out_size=%lu\n", sz, out_data.size());
             exit(1);
         }
 
@@ -176,23 +194,30 @@ void TestTBPipe()
 
     printf("TestTBPipe buffer normal --passed\n");
 
-    for(int sz=buffer_size+1; sz<buffer_size+30; sz++)
+    for(int sz=buffer_size; sz<buffer_size+30; sz++)
     {
+        out_data.clear();
         data.resize(sz);
         for(size_t i=0; i<sz; i++)
         {
             data[i] = rand();
-            pipe.AppendByte(data[i]);
+        }
+        uint32_t written = pipe.Write(data.data(), data.size());
+        bool overflow = written < data.size();
+
+        for(int i=0; i<2; i++)
+        {
+            uint8_t* out_ptr;
+            uint32_t out_size;
+            pipe.Read(out_ptr, out_size);
+            if(out_size==0)
+                break;
+            out_data.insert(out_data.end(), out_ptr, out_ptr+out_size);
         }
 
-        uint8_t* out_data;
-        uint32_t out_size;
-        bool overflow;
-        pipe.GetBuffer(out_data, out_size, &overflow);
-
-        if(out_size!=buffer_size)
+        if(out_data.size()!=buffer_size-1)
         {
-            printf("Error! in_size=%i out_size=%u\n", sz, out_size);
+            printf("Error! in_size=%i out_size=%lu\n", sz, out_data.size());
             exit(1);
         }
 
@@ -202,7 +227,7 @@ void TestTBPipe()
             exit(1);
         }
 
-        for(int i=0; i<out_size; i++)
+        for(int i=0; i<out_data.size(); i++)
         {
             if(data[i]!=out_data[i])
             {
@@ -215,7 +240,81 @@ void TestTBPipe()
     printf("TestTBPipe buffer overflow --passed\n");
 }
 
+void TestTBPipeMultithread()
+{
+    printf("TestTBPipe multithread\n");
+    int buffer_size = 300;
+    TBPipe pipe(buffer_size);
+    uint32_t write_index = 0;
+    volatile bool is_done = false;
+    uint64_t start_us = time_us();
+    std::thread filler([&pipe, &write_index, &is_done](){
 
+        for(int i=0; i<10000; i++)
+        {
+            usleep(100);
+            const int buf_size = rand()%64;
+            uint32_t buffer[buf_size];
+            for(int i=0; i<buf_size; i++)
+                buffer[i] = write_index + i;
+            uint32_t written = pipe.Write((uint8_t*)buffer, sizeof(buffer));
+            write_index += written/4;
+        }
+
+        is_done = true;
+    });
+
+    uint32_t read_index = 0;
+
+    int passes = 0;
+    while(1)
+    {
+        bool break_at_end = false;
+        if(is_done)
+        {
+            filler.join();
+            break_at_end = true;
+        }
+
+        uint8_t* data;
+        uint32_t size;
+        pipe.Read(data, size);
+        if(size%4)
+        {
+            printf("size%%4!=0\n");
+            exit(1);
+        }
+
+        uint32_t int_count = size/4;
+        uint32_t* buffer = (uint32_t*)data;
+        for(uint32_t i=0; i<int_count; i++)
+        {
+            if(buffer[i] != read_index)
+            {
+                printf("buffer[i] != read_index buffer[i]=%u read_index=%u\n", buffer[i], read_index);
+                exit(1);
+            }
+
+            read_index++;
+        }
+
+        passes++;
+        if(break_at_end)
+            break;
+    }
+
+    if(write_index != read_index)
+    {
+        printf("write_index != read_index write_index=%u read_index=%u\n", write_index, read_index);
+        exit(1);
+    }
+
+    uint64_t end_us = time_us();
+    printf("last readed index=%u\n", read_index);
+    printf("execution time %lu us\n", end_us-start_us);
+
+    printf("TestTBPipe multithread --passed\n");
+}
 
 void CheckMessage(const TBMessage& orig, const TBMessage& received)
 {
@@ -459,14 +558,15 @@ void TestTBPipeTimeout()
 
 int main()
 {
+    TestTBPipe();
+    TestTBPipeMultithread();
     /*
     TestEsp8266PrefixParser();
     TestStandartPrefixParser();
-    TestTBPipe();
     TestTBParse(false);
     TestTBParse(true);
     TestTBPipeTimeout();
-    */
     TestTBinParse();
+    */
     return 0;
 }

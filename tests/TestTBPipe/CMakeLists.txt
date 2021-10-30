@@ -31,4 +31,6 @@ set(SOURCE
     ${PIPE_ROOT}/TBinParse.cpp
   )
 
+link_libraries(pthread)
+
 add_executable(TestTBPipe ${SOURCE})

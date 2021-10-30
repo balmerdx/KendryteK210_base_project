@@ -1,47 +1,40 @@
 #pragma once
 /*
-Этот класс предназначен для того, что-бы принимать данные по UART либо WiFi в текстовой и бинарной форме.
-1. Данные принимаются в прерывании по байтикам.
-   Возможно в будущем сделаю, чтобы бинарные данные принимались по DMA,
-   но это усложнит код. Тогда потребуется отдельно подписываться на таймер и следить за timeout.
-2. Изначально система находится в режиме приёма текстовых данных.
-   Когда приходит \n это признак того, что строчка завершилась и её надо обрабатывать.
-   \r игнорируется.
-
-   Переключение в бинарный режим происходит по префиксу.
-   Для своих целей буду использовать префикс 0x00, 0x01, size_hi, size_lo (всегда четыре байта байта).
-   Но надо поддержать и префикс вида '\n+IPD,0,149:' Он произвольной длинны. Начинается с \n+IPD, и заканчивается :.
-   Потом идут бинарные данные. Префикс всегда начинается либо после \n, либо после другого пакета бинарных данных.
+Этот класс предназначен для того, что-бы принимать данные по UART в прерываниии и читать их в основном коде.
+Это lock-free ring buffer.
+Т.е. читать можно даже из другого потока чем записанно.
+Предполагается, что из буфера будет вычитываться быстрее, чем записывается.
 */
 
 #include <stdint.h>
 class TBPipe
 {
 public:
+    //uint64_t - что-бы случайно не пересекалось при чтении-записи на K210
+    typedef uint64_t otype;
+
     //Вариант, когда используя malloc создаются буфера.
     //Общий размер выделяемой памяти buffer_size*2
     TBPipe(int buffer_size);
     ~TBPipe();
-    //Вызывается в прерывании
-    void AppendByte(uint8_t byte);
-
-    //!!! можно вызывать только из нулевого ядра!
-    //Из того-же, где происходит прерывание.
-    //
-    void GetBuffer(uint8_t*& data, uint32_t& size, bool* overflow = nullptr);
+    //bytes - байты для записи
+    //count - количество записываемых байт.
+    //return - количество байт, которое действительно записенно
+    uint32_t Write(uint8_t* bytes, uint32_t count);
+    //Вызывается из основного кода
+    //Возвращает указатель на непрерывный буфер читаемых данных.
+    //Это возможно не все данные, находящиеся в буфере.
+    void Read(uint8_t*& data, uint32_t& size);
 
     int BufferSize() const { return buffer_size; }
-
-    uint32_t AvailableBytes() const { return irq_buffer_pos; }
+    uint32_t FreeBytes() const;
+    uint32_t AvailableBytes() const;
 protected:
-    int buffer_size;
+    TBPipe::otype FreeBytesInternal(otype read_pos, otype write_pos) const;
+protected:
     uint8_t* buffer;
-    uint8_t* irq_buffer;
-    uint8_t* user_buffer;
-
-    volatile uint32_t irq_buffer_pos = 0;
-    uint32_t user_buffer_pos = 0;
-
-    bool overflow = false;
+    otype buffer_size;
+    volatile otype read_pos = 0;
+    volatile otype write_pos = 0;
 };
 

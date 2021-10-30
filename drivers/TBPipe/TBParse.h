@@ -14,6 +14,8 @@ public:
         //Префикс полностью прочитан, пора читать бинарные данные.
         PrefixCompleted
     };
+
+    virtual ~BinPrefixParser();
     
     //Возвращает true, если префикс нашёлся в потоке команд.
     //data - символ, который пришёл по Uart/WiFi
@@ -91,4 +93,11 @@ public:
 protected:
     uint32_t data_size = 0;
     uint32_t found_idx = 0;
+};
+
+class NullPrefixParser : public BinPrefixParser
+{
+public:
+    Result Parse(uint8_t data, bool is_first) override { return Result::NotMatched; }
+    uint32_t PacketSize() override { return 0; }
 };

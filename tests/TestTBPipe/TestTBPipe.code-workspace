@@ -59,7 +59,8 @@
 			"cinttypes": "cpp",
 			"compare": "cpp",
 			"concepts": "cpp",
-			"ranges": "cpp"
+			"ranges": "cpp",
+			"thread": "cpp"
 		}
 	}
 }

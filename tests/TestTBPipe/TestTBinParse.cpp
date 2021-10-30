@@ -128,7 +128,7 @@ void TestTBinParseSingle()
         TBinParse parse(1024);
         
         std::vector<uint8_t> data;
-        Fill(data, 32, 100);
+        Fill(data, size, 100);
         buf.AddPacket(3, data);
 
         parse.Append(buf.Data(), buf.DataSize());

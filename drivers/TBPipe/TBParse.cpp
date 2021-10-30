@@ -18,6 +18,10 @@ static uint64_t time_us()
 }
 #endif
 
+BinPrefixParser::~BinPrefixParser()
+{
+    
+}
 
 TBParse::TBParse(uint32_t buffer_size, BinPrefixParser* parser)
     : buffer_size(buffer_size)
