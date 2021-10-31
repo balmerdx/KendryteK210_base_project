@@ -31,7 +31,7 @@ public:
     uint32_t AvailableBytes() const;
 protected:
     TBPipe::otype FreeBytesInternal(otype read_pos, otype write_pos) const;
-protected:
+
     uint8_t* buffer;
     otype buffer_size;
     volatile otype read_pos = 0;

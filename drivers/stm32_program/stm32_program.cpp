@@ -5,8 +5,10 @@
 #include <gpiohs.h>
 #include <sleep.h>
 #include <sysctl.h>
+#include <algorithm>
 
 #include "TBPipe/TBPipe.h"
+#include "TBPipe/TBParse.h"
 
 #define UART_NUM    UART_DEVICE_1
 #define STM32_RST   FUNC_GPIOHS3
@@ -30,22 +32,32 @@ enum STM32_CONSTANT
 struct ProgramData
 {
     TBPipe pipe;
+    TBParse parse;
+    NullPrefixParser null_parser;
+
     ProgramData(int buffer_size)
         : pipe(buffer_size)
+        , parse(buffer_size, &null_parser)
     {
     }
 };
 static uint8_t data alignas(ProgramData) [sizeof(ProgramData)];
 static ProgramData* ptr = nullptr;
 static const uint32_t default_timeout_ms = 10;
+static bool bootloader_activated = false;
 
 static int UartIrqCallback(void *ctx)
 {
-    TBPipe* pipe = (TBPipe*)ctx;
-    char c;
-    while(uart_receive_data(UART_NUM, &c, 1))
+    //TBPipe* pipe = (TBPipe*)ctx;
+    char buf[32];
+    while(1)
     {
-        pipe->AppendByte(c);
+        int ret = uart_receive_data(UART_NUM, buf, sizeof(buf));
+        if(ret==0)
+            break;
+        ptr->pipe.Write((uint8_t*)buf, ret);
+
+        //pipe->Write((uint8_t*)buf, ret);
     }
 
     return 0;
@@ -58,7 +70,8 @@ static void uart_init(void* ctx)
     fpioa_set_function(3, (fpioa_function_t)(FUNC_UART1_TX + UART_NUM * 2));
 
     uart_init(UART_NUM);
-    uint32_t baud_rate = 115200;
+    //uint32_t baud_rate = 115200;
+    uint32_t baud_rate = 100000;
     //uint32_t baud_rate = 9200;
     uart_configure(UART_NUM, baud_rate, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_EVEN);
     uart_set_send_trigger(UART_NUM, UART_SEND_FIFO_0);
@@ -97,7 +110,7 @@ static bool uart_receive(uint8_t*& data, uint32_t& size, size_t min_receive, uin
             return false;
     }
 
-    ptr->pipe.GetBuffer(data, size);
+    ptr->pipe.Read(data, size);
     return true;
 }
 
@@ -121,7 +134,12 @@ static void stm32_restart(bool boot_mode = false)
 
 void stm32p_restart()
 {
+    uint8_t* data;
+    uint32_t size;
+    ptr->pipe.Read(data, size);
+
     stm32_restart(false);
+    bootloader_activated = false; 
 }
 
 void stm32p_init()
@@ -167,7 +185,7 @@ void print_received(uint64_t msec=0)
         msleep(msec);
     uint8_t* data;
     uint32_t size;
-    ptr->pipe.GetBuffer(data, size);
+    ptr->pipe.Read(data, size);
     print_hex(data, size);
 }
 
@@ -200,12 +218,15 @@ bool stm32p_activate_bootloader()
     msleep(30);
     uint8_t* data;
     uint32_t size;
-    ptr->pipe.GetBuffer(data, size);
+    ptr->pipe.Read(data, size);
 
     uint8_t buf = STM32_ACTIVATE;
     uart_send(&buf, 1);
 
-    return stm32p_wait_ack();
+    bool ok = stm32p_wait_ack();
+    if(ok)
+        bootloader_activated = true;
+    return ok;
 }
 
 static bool stm32p_send_address(uint32_t address)
@@ -304,7 +325,42 @@ bool stm32p_erase(uint32_t start_page, uint32_t num_pages)
 
     uart_send(buf, i);
 
-    return stm32p_wait_ack(1000);
+    return stm32p_wait_ack(3000);
+}
+
+void stm32p_get_print()
+{
+    stm32p_send_cmd(STM32_CMD_GET, false);
+    printf("STM32_CMD_GET\n");
+    print_received(10);
+}
+
+__attribute((weak))
+void stm32_log_callback(uint8_t* data, uint32_t size)
+{
+}
+
+void stm32p_log_receive()
+{
+    if(bootloader_activated)
+        return;
+
+    uint8_t* data;
+    uint32_t size;
+    ptr->pipe.Read(data, size);
+    if(size==0)
+        return;
+
+    ptr->parse.Append(data, size);
+
+    while(1)
+    {
+        TBMessage m = ptr->parse.NextMessage();
+        if(m.size==0)
+            break;
+        //printf("stm32_log_callback size=%u\n", m.size);
+        stm32_log_callback(m.data, m.size);
+    }
 }
 
 void stm32p_test_loop()
@@ -314,9 +370,7 @@ void stm32p_test_loop()
         while(1);
     printf("stm32p_activate_bootloader success\n");
 
-    stm32p_send_cmd(STM32_CMD_GET, false);
-    printf("STM32_CMD_GET\n");
-    print_received(10);
+    stm32p_get_print();
 /*
     if(stm32p_erase(0, 1))
         printf("erase success\n");
@@ -326,10 +380,10 @@ void stm32p_test_loop()
     uint32_t page_size = 2048;
     uint32_t address_start_flash = 0x08000000;
 
-    if(false)  
+    if(true)  
     {
         uint8_t write_data[256];
-        uint32_t write_size = 16;
+        uint32_t write_size = 256;
         for(uint32_t i=0; i<write_size; i++)
             write_data[i] = 0x30-i;
         if(stm32p_write_memory(address_start_flash, write_data, write_size))

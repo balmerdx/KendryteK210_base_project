@@ -26,7 +26,8 @@ bool spi2_slave_receive4(uint8_t* rx_buff, uint32_t rx_len, uint64_t timeout_us)
     }
 
     //Swap endian
-    for(size_t i=0; i<rx_len; i++)
+    v_rx_len = rx_len/4;
+    for(size_t i=0; i<v_rx_len; i++)
     {
         rx_buff32[i] = __builtin_bswap32(rx_buff32[i]);
     }

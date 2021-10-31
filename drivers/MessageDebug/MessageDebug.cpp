@@ -23,10 +23,13 @@ struct MessageDebugData
 static int KeyboardIrqCallback(void *ctx)
 {
     TBPipe* pipe = (TBPipe*)ctx;
-    char c;
-    while(uart_receive_data(DEBUG_UART_NUM, &c, 1))
+    char buf[32];
+    while(1)
     {
-        pipe->AppendByte(c);
+        int ret = uart_receive_data(DEBUG_UART_NUM, buf, sizeof(buf));
+        if(ret==0)
+            break;
+        pipe->Write((uint8_t*)buf, ret);
     }
 
     return 0;
@@ -46,7 +49,7 @@ void MessageDebugQuant()
 {
     uint8_t* data;
     uint32_t size;
-    ptr->keyboard_pipe.GetBuffer(data, size);
+    ptr->keyboard_pipe.Read(data, size);
     ptr->keyboard_parse.Append((uint8_t*)data, size);
 }
 
