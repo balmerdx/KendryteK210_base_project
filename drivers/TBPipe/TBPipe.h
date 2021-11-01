@@ -11,7 +11,7 @@ class TBPipe
 {
 public:
     //uint64_t - что-бы случайно не пересекалось при чтении-записи на K210
-    typedef uint64_t otype;
+    typedef uint32_t otype;
 
     //Вариант, когда используя malloc создаются буфера.
     //Общий размер выделяемой памяти buffer_size*2
@@ -21,10 +21,13 @@ public:
     //count - количество записываемых байт.
     //return - количество байт, которое действительно записенно
     uint32_t Write(uint8_t* bytes, uint32_t count);
+
     //Вызывается из основного кода
     //Возвращает указатель на непрерывный буфер читаемых данных.
     //Это возможно не все данные, находящиеся в буфере.
-    void Read(uint8_t*& data, uint32_t& size);
+    //После окончания чтения - вызывать ReadEnd
+    void ReadStart(uint8_t*& data, uint32_t& size);
+    void ReadEnd();
 
     int BufferSize() const { return buffer_size; }
     uint32_t FreeBytes() const;
@@ -36,5 +39,7 @@ protected:
     otype buffer_size;
     volatile otype read_pos = 0;
     volatile otype write_pos = 0;
+
+    volatile otype read_pos_tmp = 0;
 };
 

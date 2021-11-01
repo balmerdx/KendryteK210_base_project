@@ -28,12 +28,20 @@ TBPipe::otype TBPipe::FreeBytesInternal(TBPipe::otype read_pos, TBPipe::otype wr
 
 uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
 {
-    otype read_pos = this->read_pos;
-    otype write_pos = this->write_pos;
+    //otype read_pos = this->read_pos;
+    //otype write_pos = this->write_pos;
+    otype read_pos, write_pos;
+    __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
+    __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
 
     TBPipe::otype free_bytes = FreeBytesInternal(read_pos, write_pos);
+    //Пускай free_bytes делится на 8 всегда
+    free_bytes = free_bytes & ~7ull;
     if(count > free_bytes)
+    {
         count = free_bytes;
+    }
+
     if(count==0)
         return (uint32_t)count;
 
@@ -59,19 +67,27 @@ uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
     if(write_pos==buffer_size)
         write_pos = 0;
 
-    this->write_pos = write_pos;
+    //this->write_pos = write_pos;
+    __atomic_store(&this->write_pos, &write_pos, __ATOMIC_RELEASE);
+    __atomic_thread_fence(__ATOMIC_ACQ_REL); //temp
     return (uint32_t)count;
 }
 
-void TBPipe::Read(uint8_t*& data, uint32_t& size)
+void TBPipe::ReadStart(uint8_t*& data, uint32_t& size)
 {
-    otype read_pos = this->read_pos;
-    otype write_pos = this->write_pos;
+    __atomic_thread_fence(__ATOMIC_ACQ_REL); //temp
+    //otype read_pos = this->read_pos;
+    //otype write_pos = this->write_pos;
+
+    otype read_pos, write_pos;
+    __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
+    __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
 
     if (write_pos == read_pos)
     {
         size = 0;
         data = nullptr;
+        read_pos_tmp = read_pos;
         return;
     }
 
@@ -89,8 +105,15 @@ void TBPipe::Read(uint8_t*& data, uint32_t& size)
             read_pos = 0;
     }
 
-    this->read_pos = read_pos;
+    read_pos_tmp = read_pos;
 }
+
+void TBPipe::ReadEnd()
+{
+    //this->read_pos = read_pos_tmp;
+    __atomic_store(&this->read_pos, &read_pos_tmp, __ATOMIC_RELEASE);
+}
+
 
 uint32_t TBPipe::FreeBytes() const
 {
