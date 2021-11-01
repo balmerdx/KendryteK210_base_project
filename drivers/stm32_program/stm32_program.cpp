@@ -71,8 +71,7 @@ static void uart_init(void* ctx)
 
     uart_init(UART_NUM);
     //uint32_t baud_rate = 115200;
-    uint32_t baud_rate = 100000;
-    //uint32_t baud_rate = 9200;
+    uint32_t baud_rate = 200000;
     uart_configure(UART_NUM, baud_rate, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_EVEN);
     uart_set_send_trigger(UART_NUM, UART_SEND_FIFO_0);
     uart_set_receive_trigger(UART_NUM, UART_RECEIVE_FIFO_1);
@@ -89,7 +88,7 @@ static void uart_send(const uint8_t *buffer, size_t buf_len)
     Получаем данные, не менее, чем min_receive байт.
     Если прошло более, чем timeout_ms и мы данных не получили, то return false
 */
-static bool uart_receive(uint8_t*& data, uint32_t& size, size_t min_receive, uint32_t timeout_ms)
+static bool uart_receive(uint8_t* data, uint32_t size, uint32_t timeout_ms)
 {
     uint64_t timeout_us  = timeout_ms*1000;
     uint64_t start_time = sysctl_get_time_us();
@@ -97,7 +96,7 @@ static bool uart_receive(uint8_t*& data, uint32_t& size, size_t min_receive, uin
     while(1)
     {
         uint32_t cur_bytes = ptr->pipe.AvailableBytes();
-        if(cur_bytes >= min_receive)
+        if(cur_bytes >= size)
             break;
 
         if(prev_bytes < cur_bytes)
@@ -110,8 +109,7 @@ static bool uart_receive(uint8_t*& data, uint32_t& size, size_t min_receive, uin
             return false;
     }
 
-    ptr->pipe.Read(data, size);
-    return true;
+    return ptr->pipe.ReadExact(data, size);
 }
 
 static inline void set_stm32_restart_pin(gpio_pin_value_t v)
@@ -134,11 +132,8 @@ static void stm32_restart(bool boot_mode = false)
 
 void stm32p_restart()
 {
-    uint8_t* data;
-    uint32_t size;
-    ptr->pipe.Read(data, size);
-
     stm32_restart(false);
+    ptr->pipe.Clear();
     bootloader_activated = false; 
 }
 
@@ -185,15 +180,19 @@ void print_received(uint64_t msec=0)
         msleep(msec);
     uint8_t* data;
     uint32_t size;
-    ptr->pipe.Read(data, size);
-    print_hex(data, size);
+    for(int i=0; i<2; i++)
+    {
+        ptr->pipe.ReadStart(data, size);
+        if(size>0)
+            print_hex(data, size);
+        ptr->pipe.ReadEnd();
+    }
 }
 
 static bool stm32p_wait_ack(uint32_t timeout_ms = default_timeout_ms)
 {
-    uint8_t* data;
-    uint32_t size;
-    if(!uart_receive(data, size, 1, timeout_ms))
+    uint8_t data[1];
+    if(!uart_receive(data, 1, timeout_ms))
         return false;
 
     return data[0] == STM32_ACK;
@@ -216,9 +215,7 @@ bool stm32p_activate_bootloader()
 {
     stm32_restart(true);
     msleep(30);
-    uint8_t* data;
-    uint32_t size;
-    ptr->pipe.Read(data, size);
+    ptr->pipe.Clear();
 
     uint8_t buf = STM32_ACTIVATE;
     uart_send(&buf, 1);
@@ -259,13 +256,13 @@ bool stm32p_read_memory(uint32_t address, uint8_t* read_data, uint32_t read_size
 
     stm32p_send_cmd((uint8_t)(read_size-1), false);
 
-    uint8_t* data;
-    uint32_t size;
-    if(!uart_receive(data, size, read_size+1, default_timeout_ms))
+    uint8_t data[1];
+    if(!uart_receive(data, 1, default_timeout_ms))
         return false;
     if(data[0] != STM32_ACK)
         return false;
-    memcpy(read_data, data+1, read_size);
+    if(!uart_receive(read_data, read_size, default_timeout_ms))
+        return false;
     return true;
 }
 
@@ -347,11 +344,9 @@ void stm32p_log_receive()
 
     uint8_t* data;
     uint32_t size;
-    ptr->pipe.Read(data, size);
-    if(size==0)
-        return;
-
+    ptr->pipe.ReadStart(data, size);
     ptr->parse.Append(data, size);
+    ptr->pipe.ReadEnd();
 
     while(1)
     {

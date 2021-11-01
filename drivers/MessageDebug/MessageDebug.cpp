@@ -49,8 +49,9 @@ void MessageDebugQuant()
 {
     uint8_t* data;
     uint32_t size;
-    ptr->keyboard_pipe.Read(data, size);
+    ptr->keyboard_pipe.ReadStart(data, size);
     ptr->keyboard_parse.Append((uint8_t*)data, size);
+    ptr->keyboard_pipe.ReadEnd();
 }
 
 TBMessage MessageDebugNext()

@@ -29,11 +29,22 @@ public:
     void ReadStart(uint8_t*& data, uint32_t& size);
     void ReadEnd();
 
+    //Прочитать именно count количество байт.
+    //data - буфер, размером не менее, чем count для записи инфомации.
+    //count - количество читаемых байт
+    //return true если есть достаточно данных, и они скопированны в буфер data.
+    bool ReadExact(uint8_t* data, uint32_t count);
+
     int BufferSize() const { return buffer_size; }
     uint32_t FreeBytes() const;
     uint32_t AvailableBytes() const;
+
+    //Пытается прочитать все данные, которые были в буфере.
+    //После этого AvailableBytes будет нулевым, если за это время не успели записать новых данных.
+    void Clear();
 protected:
     TBPipe::otype FreeBytesInternal(otype read_pos, otype write_pos) const;
+    TBPipe::otype AvailableBytesInternal(otype read_pos, otype write_pos) const;
 
     uint8_t* buffer;
     otype buffer_size;

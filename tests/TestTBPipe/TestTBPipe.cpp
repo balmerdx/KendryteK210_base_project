@@ -141,7 +141,7 @@ void TestStandartPrefixParser()
     TestFeed(&parser, "+IPD,2,790", {0, 0, false});
 }
 
-void TestTBPipe()
+void TestTBPipeStartEnd()
 {
     int buffer_size = 256;
     TBPipe pipe(buffer_size);
@@ -161,6 +161,12 @@ void TestTBPipe()
 
         uint32_t written = pipe.Write(data.data(), data.size());
         bool overflow = written < data.size();
+        uint32_t available = pipe.AvailableBytes();
+        if(available!=data.size())
+        {
+            printf("available!=data.size() sz=%i available=%u\n", sz, available);
+            exit(1);
+        }
 
         for(int i=0; i<2; i++)
         {
@@ -244,7 +250,7 @@ void TestTBPipe()
     printf("TestTBPipe buffer overflow --passed\n");
 }
 
-void TestTBPipeMultithread()
+void TestTBPipeMultithreadStartEnd()
 {
     printf("TestTBPipe multithread\n");
     int buffer_size = 256;
@@ -335,6 +341,95 @@ void TestTBPipeMultithread()
     printf("last readed index=%u\n", read_index);
     printf("execution time %lu us\n", end_us-start_us);
     printf("TestTBPipe multithread --passed\n");
+}
+
+void TestTBPipeMultithreadRead()
+{
+    printf("TestTBPipeMultithreadRead\n");
+    int buffer_size = 256;
+    TBPipe pipe(buffer_size);
+    uint32_t write_index = 0;
+    volatile bool is_done = false;
+    uint64_t start_us = time_us();
+
+    std::thread filler([&pipe, &write_index, &is_done](){
+        printf("write slow\n");
+        for(int i=0; i<10000; i++)
+        {
+            usleep(100);
+            const int buf_size = rand()%64;
+            uint32_t buffer[buf_size];
+            for(int i=0; i<buf_size; i++)
+                buffer[i] = write_index + i;
+            uint32_t written = pipe.Write((uint8_t*)buffer, buf_size*4);
+            write_index += written/4;
+        }
+
+        printf("write fast\n");
+        for(int i=0; i<100000; )
+        {
+            const int buf_size = rand()%64;
+            uint32_t buffer[buf_size];
+            for(int j=0; j<buf_size; j++)
+                buffer[j] = write_index + j;
+
+            uint32_t written = pipe.Write((uint8_t*)buffer, buf_size*4);
+            if(written>0)
+                i++;
+            write_index += written/4;
+        }
+
+        is_done = true;
+    });
+
+    uint32_t read_index = 0;
+
+    int passes = 0;
+    while(1)
+    {
+        bool break_at_end = false;
+        if(is_done)
+        {
+            filler.join();
+            break_at_end = true;
+        }
+
+        usleep(10);
+
+        int buf_size = rand()%64;
+        if(break_at_end)
+            buf_size = pipe.AvailableBytes() / 4;
+        uint32_t buffer[buf_size];
+
+        if(pipe.ReadExact((uint8_t*)buffer, buf_size*4))
+        {
+            for(uint32_t i=0; i<buf_size; i++)
+            {
+                if(buffer[i] != read_index)
+                {
+                    printf("buffer[i] != read_index buffer[i]=%u read_index=%u\n", buffer[i], read_index);
+                    exit(1);
+                }
+
+                read_index++;
+            }
+        }
+
+        passes++;
+        if(break_at_end)
+            break;
+    }
+
+    if(write_index != read_index)
+    {
+        printf("write_index != read_index write_index=%u read_index=%u\n", write_index, read_index);
+        exit(1);
+    }
+
+    uint64_t end_us = time_us();
+    printf("last readed index=%u\n", read_index);
+    printf("execution time %lu us\n", end_us-start_us);
+    printf("TestTBPipeMultithreadRead --passed\n");
 }
 
 void CheckMessage(const TBMessage& orig, const TBMessage& received)
@@ -577,10 +672,17 @@ void TestTBPipeTimeout()
     printf("--passed\n");
 }
 
+void TestTBPipe()
+{
+    TestTBPipeStartEnd();
+    TestTBPipeMultithreadRead();
+    TestTBPipeMultithreadStartEnd();
+}
+
 int main()
 {
     TestTBPipe();
-    TestTBPipeMultithread();
+
     /*
     TestEsp8266PrefixParser();
     TestStandartPrefixParser();

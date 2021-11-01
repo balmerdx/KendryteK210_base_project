@@ -26,6 +26,11 @@ TBPipe::otype TBPipe::FreeBytesInternal(TBPipe::otype read_pos, TBPipe::otype wr
         return buffer_size + read_pos - write_pos - 1;
 }
 
+TBPipe::otype TBPipe::AvailableBytesInternal(otype read_pos, otype write_pos) const
+{
+    return buffer_size-1-FreeBytesInternal(read_pos, write_pos);
+}
+
 uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
 {
     //otype read_pos = this->read_pos;
@@ -69,13 +74,11 @@ uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
 
     //this->write_pos = write_pos;
     __atomic_store(&this->write_pos, &write_pos, __ATOMIC_RELEASE);
-    __atomic_thread_fence(__ATOMIC_ACQ_REL); //temp
     return (uint32_t)count;
 }
 
 void TBPipe::ReadStart(uint8_t*& data, uint32_t& size)
 {
-    __atomic_thread_fence(__ATOMIC_ACQ_REL); //temp
     //otype read_pos = this->read_pos;
     //otype write_pos = this->write_pos;
 
@@ -114,13 +117,75 @@ void TBPipe::ReadEnd()
     __atomic_store(&this->read_pos, &read_pos_tmp, __ATOMIC_RELEASE);
 }
 
+bool TBPipe::ReadExact(uint8_t* data, uint32_t count)
+{
+    otype read_pos, write_pos;
+    __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
+    __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+
+    otype alailable = AvailableBytesInternal(read_pos, write_pos);
+
+    if (alailable < count)
+        return false;
+
+    if (write_pos < read_pos)
+    {
+        otype size = buffer_size - read_pos;
+        if(size >= count)
+        {
+            memcpy(data, buffer + read_pos, count);
+            read_pos += count;
+            count = 0;
+        } else
+        {
+            memcpy(data, buffer + read_pos, size);
+            read_pos = 0;
+            count -= size;
+            data += size;
+        }
+    }
+
+    if(count > 0) //write_pos >= read_pos
+    {
+        otype size = write_pos - read_pos;
+        if(count > size)
+        {
+            //assert(0);
+            int k=0;
+        }
+
+        memcpy(data, buffer + read_pos, count);
+        read_pos += count;
+        if(read_pos==buffer_size)
+            read_pos = 0;
+    }
+
+    __atomic_store(&this->read_pos, &read_pos, __ATOMIC_RELEASE);
+    return true;
+}
 
 uint32_t TBPipe::FreeBytes() const
 {
+    otype read_pos, write_pos;
+    __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
+    __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
     return (uint32_t)FreeBytesInternal(read_pos, write_pos);
 }
 
 uint32_t TBPipe::AvailableBytes() const
 {
-    return (uint32_t)(buffer_size-FreeBytesInternal(read_pos, write_pos));
+    otype read_pos, write_pos;
+    __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
+    __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+    return (uint32_t)AvailableBytesInternal(read_pos, write_pos);
+}
+
+void TBPipe::Clear()
+{
+    uint8_t* data;
+    uint32_t size;
+    ReadStart(data, size);
+    ReadEnd();
+    ReadStart(data, size);
+    ReadEnd();
 }
