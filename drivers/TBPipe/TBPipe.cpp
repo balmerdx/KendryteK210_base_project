@@ -3,12 +3,15 @@
 #include <memory.h>
 #include "sysctl.h"
 
+//#define USE_BUILDIN_ATOMIC
+
 TBPipe::TBPipe(int buffer_size)
     : buffer_size(buffer_size)
 {
     static_assert(sizeof(char)==1);
     static_assert(sizeof(uint32_t)==4);
     static_assert(sizeof(uint64_t)==8);
+    static_assert(__atomic_always_lock_free(sizeof(uint32_t),0));
 
     buffer = (uint8_t*)malloc(buffer_size);
 }
@@ -33,11 +36,14 @@ TBPipe::otype TBPipe::AvailableBytesInternal(otype read_pos, otype write_pos) co
 
 uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
 {
-    //otype read_pos = this->read_pos;
-    //otype write_pos = this->write_pos;
+#ifdef USE_BUILDIN_ATOMIC
     otype read_pos, write_pos;
     __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
     __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+#else
+    otype read_pos = this->read_pos;
+    otype write_pos = this->write_pos;
+#endif
 
     TBPipe::otype free_bytes = FreeBytesInternal(read_pos, write_pos);
     //Пускай free_bytes делится на 8 всегда
@@ -72,19 +78,24 @@ uint32_t TBPipe::Write(uint8_t* bytes, uint32_t count)
     if(write_pos==buffer_size)
         write_pos = 0;
 
-    //this->write_pos = write_pos;
+#ifdef USE_BUILDIN_ATOMIC
     __atomic_store(&this->write_pos, &write_pos, __ATOMIC_RELEASE);
+#else
+    this->write_pos = write_pos;
+#endif
     return (uint32_t)count;
 }
 
 void TBPipe::ReadStart(uint8_t*& data, uint32_t& size)
 {
-    //otype read_pos = this->read_pos;
-    //otype write_pos = this->write_pos;
-
+#ifdef USE_BUILDIN_ATOMIC
     otype read_pos, write_pos;
     __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
     __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+#else
+    otype read_pos = this->read_pos;
+    otype write_pos = this->write_pos;
+#endif
 
     if (write_pos == read_pos)
     {
@@ -113,15 +124,23 @@ void TBPipe::ReadStart(uint8_t*& data, uint32_t& size)
 
 void TBPipe::ReadEnd()
 {
-    //this->read_pos = read_pos_tmp;
+#ifdef USE_BUILDIN_ATOMIC
     __atomic_store(&this->read_pos, &read_pos_tmp, __ATOMIC_RELEASE);
+#else
+    this->read_pos = read_pos_tmp;
+#endif
 }
 
 bool TBPipe::ReadExact(uint8_t* data, uint32_t count)
 {
+#ifdef USE_BUILDIN_ATOMIC
     otype read_pos, write_pos;
     __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
     __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+#else
+    otype read_pos = this->read_pos;
+    otype write_pos = this->write_pos;
+#endif
 
     otype alailable = AvailableBytesInternal(read_pos, write_pos);
 
@@ -160,23 +179,31 @@ bool TBPipe::ReadExact(uint8_t* data, uint32_t count)
             read_pos = 0;
     }
 
+#ifdef USE_BUILDIN_ATOMIC
     __atomic_store(&this->read_pos, &read_pos, __ATOMIC_RELEASE);
+#else
+    this->read_pos = read_pos;
+#endif
     return true;
 }
 
 uint32_t TBPipe::FreeBytes() const
 {
+#ifdef USE_BUILDIN_ATOMIC
     otype read_pos, write_pos;
     __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
     __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+#endif
     return (uint32_t)FreeBytesInternal(read_pos, write_pos);
 }
 
 uint32_t TBPipe::AvailableBytes() const
 {
+#ifdef USE_BUILDIN_ATOMIC
     otype read_pos, write_pos;
     __atomic_load(&this->read_pos, &read_pos, __ATOMIC_ACQUIRE);
     __atomic_load(&this->write_pos, &write_pos, __ATOMIC_ACQUIRE);
+#endif
     return (uint32_t)AvailableBytesInternal(read_pos, write_pos);
 }
 
