@@ -10,7 +10,7 @@
 class TBPipe
 {
 public:
-    //uint64_t - что-бы случайно не пересекалось при чтении-записи на K210
+    //uint32_t - достаточно как на Intel x64 так и на Kendryte K210
     typedef uint32_t otype;
 
     //Вариант, когда используя malloc создаются буфера.
