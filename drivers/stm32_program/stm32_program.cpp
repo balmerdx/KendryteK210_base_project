@@ -84,6 +84,11 @@ static void uart_send(const uint8_t *buffer, size_t buf_len)
     uart_send_data(UART_NUM, (const char*)buffer, buf_len);
 }
 
+void stm32p_uart_send(const uint8_t *buffer, uint32_t buf_len)
+{
+    uart_send_data(UART_NUM, (const char*)buffer, buf_len);
+}
+
 /*
     Получаем данные, не менее, чем min_receive байт.
     Если прошло более, чем timeout_ms и мы данных не получили, то return false

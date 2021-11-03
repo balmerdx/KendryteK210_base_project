@@ -683,13 +683,11 @@ int main()
 {
     TestTBPipe();
 
-    /*
     TestEsp8266PrefixParser();
     TestStandartPrefixParser();
     TestTBParse(false);
     TestTBParse(true);
     TestTBPipeTimeout();
     TestTBinParse();
-    */
     return 0;
 }

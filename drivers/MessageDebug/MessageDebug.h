@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TBPipe/TBPipeStruct.h"
+#include "TBPipe/TBParseStruct.h"
 
 /*
 Надстройка над TBPipe/TBParse для приёма данных по debug uart.

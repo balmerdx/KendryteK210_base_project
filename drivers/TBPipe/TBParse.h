@@ -1,6 +1,6 @@
 #pragma once
 
-#include "TBPipeStruct.h"
+#include "TBParseStruct.h"
 
 class BinPrefixParser
 {

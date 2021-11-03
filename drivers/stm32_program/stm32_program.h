@@ -36,4 +36,7 @@ void stm32_log_callback(uint8_t* data, uint32_t size);
 //Вызывет stm32_log_callback несколько раз, если есть сообщения от STM32.
 void stm32p_log_receive();
 
+//После stm32p_restart можно пользоваться этой функцией для отсылки данных на STM32
+void stm32p_uart_send(const uint8_t *buffer, uint32_t buf_len);
+
 void stm32p_test_loop();

@@ -1,5 +1,6 @@
 #pragma once
-#include <stdint.h>
+
+#include <stdint.h> 
 struct TBMessage
 {
     //data - гарантированно align 4 byte для бинарных данных
