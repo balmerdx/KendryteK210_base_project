@@ -13,6 +13,7 @@
 #define UART_NUM    UART_DEVICE_1
 #define STM32_RST   FUNC_GPIOHS3
 #define STM32_BOOT0 FUNC_GPIOHS4
+const uint32_t baud_rate = 200000;
 
 enum STM32_COMMANDS
 {
@@ -29,15 +30,64 @@ enum STM32_CONSTANT
     STM32_NACK = 0x1F,
 };
 
+class PrefixParserShort : public BinPrefixParser
+{
+public:
+    PrefixParserShort()
+    {
+
+    }
+    //2 byte prefix
+    //0xFE, size
+    Result Parse(uint8_t data, bool is_first) override
+    {
+        if(is_first)
+        {
+            found_idx = 0;
+            data_size = 0;
+        }
+
+        switch(found_idx)
+        {
+        default:
+        case 0:
+            if(data==0xFE)
+                found_idx = 1;
+            break;
+        case 1:
+            found_idx = 0;
+            if(data>0 && data<128)
+            {
+                data_size = (uint32_t)data;
+                return Result::PrefixCompleted;
+            } else
+            {
+                data_size = 0;
+                return Result::NotMatched;
+            }
+        }
+
+        if(found_idx==0)
+            return Result::NotMatched;
+
+        return Result::PrefixMatched;
+    }
+    uint32_t PacketSize() override { return data_size; }
+protected:
+    uint32_t data_size = 0;
+    uint32_t found_idx = 0;
+};
+
+
 struct ProgramData
 {
     TBPipe pipe;
     TBParse parse;
-    NullPrefixParser null_parser;
+    PrefixParserShort short_parser;
 
     ProgramData(int buffer_size)
         : pipe(buffer_size)
-        , parse(buffer_size, &null_parser)
+        , parse(buffer_size, &short_parser)
     {
     }
 };
@@ -70,8 +120,6 @@ static void uart_init(void* ctx)
     fpioa_set_function(3, (fpioa_function_t)(FUNC_UART1_TX + UART_NUM * 2));
 
     uart_init(UART_NUM);
-    //uint32_t baud_rate = 115200;
-    uint32_t baud_rate = 200000;
     uart_configure(UART_NUM, baud_rate, UART_BITWIDTH_8BIT, UART_STOP_1, UART_PARITY_EVEN);
     uart_set_send_trigger(UART_NUM, UART_SEND_FIFO_0);
     uart_set_receive_trigger(UART_NUM, UART_RECEIVE_FIFO_1);
@@ -122,14 +170,16 @@ static inline void set_stm32_restart_pin(gpio_pin_value_t v)
     gpiohs_set_pin(STM32_RST-FUNC_GPIOHS0, v);
 }
 
-static inline void set_stm32_boot_pin(gpio_pin_value_t v)
+void set_stm32_boot_pin(bool v)
 {
-    gpiohs_set_pin(STM32_BOOT0-FUNC_GPIOHS0, v);
+    gpiohs_set_pin(STM32_BOOT0-FUNC_GPIOHS0, v?GPIO_PV_HIGH:GPIO_PV_LOW);
 }
 
 static void stm32_restart(bool boot_mode = false)
 {
-    set_stm32_boot_pin(boot_mode?GPIO_PV_HIGH:GPIO_PV_LOW);
+    uart_configure(UART_NUM, baud_rate, UART_BITWIDTH_8BIT, UART_STOP_1, boot_mode?UART_PARITY_EVEN:UART_PARITY_NONE);
+    
+    set_stm32_boot_pin(boot_mode);
     set_stm32_restart_pin(GPIO_PV_LOW);
     msleep(30);
     set_stm32_restart_pin(GPIO_PV_HIGH);
@@ -342,6 +392,12 @@ void stm32_log_callback(uint8_t* data, uint32_t size)
 {
 }
 
+__attribute((weak))
+void stm32_bin_callback(uint8_t* data, uint32_t size)
+{
+
+}
+
 void stm32p_log_receive()
 {
     if(bootloader_activated)
@@ -359,7 +415,10 @@ void stm32p_log_receive()
         if(m.size==0)
             break;
         //printf("stm32_log_callback size=%u\n", m.size);
-        stm32_log_callback(m.data, m.size);
+        if(m.is_text)
+            stm32_log_callback(m.data, m.size);
+        else
+            stm32_bin_callback(m.data, m.size);
     }
 }
 
