@@ -304,6 +304,19 @@ bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase)
     return esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_SET_SSID_AND_PASS);
 }
 
+bool esp32_spi_wifi_starting_ap(const char *ssid, const char *passphrase, uint8_t channel)
+{
+    size_t len = 0;
+    char* cbuf = (char*)tx_buffer;
+    tx_buffer[len++] = CESP_STARTING_AP;
+    tx_buffer[len++] = channel;
+    strncpy_s(cbuf+len, ssid, BUFFER_SIZE-len);
+    len += strlen(cbuf+len)+1;
+    strncpy_s(cbuf+len, passphrase, BUFFER_SIZE-len);
+    len += strlen(cbuf+len)+1;
+    return esp32_transfer(tx_buffer, len, rx_buffer, CESP_RESP_STARTING_AP);
+}
+
 bool esp32_spi_connect_AP(const char *ssid, const char *password, uint8_t retry_times)
 {
 #if ESP32_SPI_DEBUG
@@ -539,12 +552,9 @@ uint16_t esp32_spi_socket_write(esp32_socket socket_num, const void* buffer, uin
 
 uint16_t esp32_spi_socket_read(esp32_socket socket_num, void* buff, uint16_t size, bool* is_client_alive)
 {
-    if(size > BUFFER_SIZE-4)
-    {
-        if(is_client_alive)
-            *is_client_alive = true; //Т.к. в реальности не знаем, какой статус.
-        return 0;
-    }
+    if(size > esp32_spi_max_write_size())
+        size = esp32_spi_max_write_size();
+
     tx_buffer[0] = CESP_READ_SOCKET_DATA;
     tx_buffer[1] = (uint8_t)socket_num;
     memcpy(tx_buffer+2, &size, 2);
@@ -605,4 +615,17 @@ esp32_socket esp32_spi_server_accept(bool* is_server_alive)
     if(is_server_alive)
         *is_server_alive = rx_buffer[1]?true:false;
     return (esp32_socket)rx_buffer[0];
+}
+
+bool esp32_get_ip_addr(uint8_t local_ip[4], uint8_t subnet_mask[4], uint8_t gateway_ip[4])
+{
+    if(!esp32_transfer_no_param(CESP_GET_IP_ADDR, CESP_RESP_GET_IP_ADDR))
+        return false;
+    if(local_ip)
+        memcpy(local_ip, rx_buffer+0, 4);
+    if(subnet_mask)
+        memcpy(subnet_mask, rx_buffer+4, 4);
+    if(gateway_ip)
+        memcpy(gateway_ip, rx_buffer+8, 4);
+    return true;
 }

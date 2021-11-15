@@ -60,6 +60,14 @@ static bool connect_AP(const char* ssid, const char* pass)
     return status;
 }
 
+static bool start_AP(const char* ssid, const char* pass, uint8_t channel)
+{
+    bool status = esp32_spi_wifi_starting_ap(ssid, pass, channel);
+    printf("Start AP %s status: %s\n", ssid, status?"Ok":"Fail");
+    return status;
+}
+
+
 static void test_connection()
 {
     uint8_t ip[4];
@@ -79,6 +87,28 @@ static void test_connection()
         uint16_t time = esp32_spi_ping("sipeed.com", 100);
         printf("ping sipeed.com time: %dms\r\n", time);
     }
+}
+
+static void test_get_ip_addr()
+{
+    uint8_t local_ip[4];
+    uint8_t subnet_mask[4];
+    uint8_t gateway_ip[4];
+    if(!esp32_get_ip_addr(local_ip, subnet_mask, gateway_ip))
+    {
+        printf("esp32_get_ip_addr return false\n");
+        return;
+    }
+
+    char str_ip[20];
+    esp32_spi_pretty_ip(local_ip, str_ip);
+    printf("local_ip: %s\n", str_ip);
+
+    esp32_spi_pretty_ip(subnet_mask, str_ip);
+    printf("subnet_mask: %s\n", str_ip);
+
+    esp32_spi_pretty_ip(gateway_ip, str_ip);
+    printf("gateway_ip: %s\n", str_ip);
 }
 
 static void test_socket()
@@ -394,10 +424,12 @@ void test_esp32()
     test_invert();
     printf("firmware=%s\n", esp32_spi_firmware_version());
     printf("status=%i\n", (int)esp32_spi_status());
-    printf("temperature=%f\n", esp32_spi_get_temperature());
-    scan_WiFi();
-
-    while(!connect_AP(SSID, PASS));
+    //printf("temperature=%f\n", esp32_spi_get_temperature());
+    //scan_WiFi();
+    //while(!connect_AP(SSID, PASS));
+    start_AP("K210", "12345678", 3);
+    test_get_ip_addr(); while(1);
+    while(!start_AP("K210", "12345678", 3));
     test_connection();
     //test_download_speed_short();
     //test_socket();

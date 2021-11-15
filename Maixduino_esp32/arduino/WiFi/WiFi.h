@@ -90,7 +90,6 @@ private:
                            int32_t event_id, void* event_data);
   static void disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data);
-
 private:
   bool _initialized;
   volatile ESP32_WL_STATUS _status;

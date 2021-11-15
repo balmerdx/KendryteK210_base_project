@@ -151,9 +151,7 @@ int main(void)
     
     //stm32_uart_test();
     //print_clocks();
-    camera_test();
-
-    while(1);
+    //camera_test();   while(1);
 
     //TestFastSpi();
     //TestSlaveSpi();

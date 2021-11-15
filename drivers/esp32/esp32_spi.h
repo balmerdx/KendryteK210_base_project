@@ -75,8 +75,12 @@ uint16_t esp32_spi_ping(const char *dest, uint8_t ttl);
 void esp32_spi_pretty_ip(const uint8_t ip[4], char *str_ip);
 bool esp32_spi_get_host_by_name(const char *hostname, uint8_t ip[4]);
 
-//use esp32_spi_connect_AP
+bool esp32_get_ip_addr(uint8_t local_ip[4], uint8_t subnet_mask[4]=nullptr, uint8_t gateway_ip[4] = nullptr);
+
+//use in esp32_spi_connect_AP (начинаем подключаться к этой WiFi сети)
 bool esp32_spi_wifi_set_ssid_and_pass(const char *ssid, const char *passphrase);
+//Начинаем создавать свою WiFi сеть
+bool esp32_spi_wifi_starting_ap(const char *ssid, const char *passphrase, uint8_t channel);
 void esp32_spi_reset();
 
 

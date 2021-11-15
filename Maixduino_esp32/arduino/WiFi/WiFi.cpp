@@ -205,16 +205,26 @@ uint8_t WiFiClass::beginAP(const char *ssid, const char* passw, uint8_t channel)
   wifiConfig.ap.authmode = has_passw?WIFI_AUTH_WPA_WPA2_PSK:WIFI_AUTH_OPEN;//or  WIFI_AUTH_WEP
   wifiConfig.ap.max_connection = 4;
 
+  int bits = xEventGroupWaitBits(_wifi_event_group, CONNECTED_BIT, 0, 1, 0);
+  if (bits & CONNECTED_BIT) {
+      xEventGroupClearBits(_wifi_event_group, CONNECTED_BIT);
+      ESP_ERROR_CHECK( esp_wifi_disconnect() );
+      xEventGroupWaitBits(_wifi_event_group, DISCONNECTED_BIT, 0, 1, portTICK_RATE_MS);
+  }
+
   _status = WL_CONNECTING;
 
   _interface = WIFI_IF_AP;
 
-  esp_wifi_set_mode(WIFI_MODE_AP);
+  if (esp_wifi_set_mode(WIFI_MODE_AP) != ESP_OK)
+  {
+    _status = WL_DISCONNECTED;
+    return _status;
+  }
 
   if (esp_wifi_set_config(WIFI_IF_AP, &wifiConfig) != ESP_OK) {
     _status = WL_DISCONNECTED;
-  } else {
-    xEventGroupWaitBits(_wifi_event_group, CONNECTED_BIT, false, true, portMAX_DELAY);
+    return _status;
   }
 
   return _status;
@@ -488,26 +498,6 @@ void WiFiClass::scan_done_handler(void* arg, esp_event_base_t event_base,
                               int32_t event_id, void* event_data)
 {
   xEventGroupSetBits(WiFi._wifi_event_group, SCAN_DONE_BIT);
-/*  
-  uint16_t sta_number = 0;
-  uint8_t i;
-  wifi_ap_record_t *ap_list_buffer;
-
-  esp_wifi_scan_get_ap_num(&sta_number);
-  if (sta_number==0) {
-      ESP_LOGE(TAG, "No AP found");
-      return;
-  }
-
-  if(sta_number > MAX_SCAN_RESULTS)
-    sta_number = MAX_SCAN_RESULTS;
-
-  if (esp_wifi_scan_get_ap_records(&sta_number,(wifi_ap_record_t *)ap_list_buffer) == ESP_OK) {
-      for(i=0; i<sta_number; i++) {
-          ESP_LOGI(TAG, "[%s][rssi=%d]", ap_list_buffer[i].ssid, ap_list_buffer[i].rssi);
-      }
-  }
-*/  
 }
 
 void WiFiClass::got_ip_handler(void* arg, esp_event_base_t event_base,
@@ -521,7 +511,7 @@ void WiFiClass::got_ip_handler(void* arg, esp_event_base_t event_base,
 void WiFiClass::disconnect_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data)
 {
-  ESP_LOGI(TAG, "sta disconnect");
+  //ESP_LOGI(TAG, "sta disconnect");
   xEventGroupClearBits(WiFi._wifi_event_group, CONNECTED_BIT);
   xEventGroupSetBits(WiFi._wifi_event_group, DISCONNECTED_BIT);
   WiFi._status = WL_DISCONNECTED;

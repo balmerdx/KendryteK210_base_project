@@ -107,10 +107,9 @@ int setApPassPhrase(const uint8_t command[], uint8_t response[])
   uint8_t channel = command[1];
   const char* ssid = (const char*)(command+2);
   const char* pass = ssid+strlen(ssid)+1;
-
-  *(uint32_t*)response = (WiFi.beginAP(ssid, pass, channel) == WL_CONNECTING)?1:0;
-
-  return 4;
+  WiFi.beginAP(ssid, pass, channel);
+  *(uint32_t*)response = command[0];
+  return CESP_RESP_STARTING_AP;
 }
 
 
@@ -174,7 +173,7 @@ int getIPaddr(const uint8_t command[], uint8_t response[])
   memcpy(response+4, &mask, sizeof(mask));
   memcpy(response+8, &gwip, sizeof(gwip));
 
-  return 12;
+  return CESP_RESP_GET_IP_ADDR;
 }
 
 int getMACaddr(const uint8_t command[], uint8_t response[])
