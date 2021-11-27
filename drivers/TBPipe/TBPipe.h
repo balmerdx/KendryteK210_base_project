@@ -15,8 +15,13 @@ public:
 
     //Вариант, когда используя malloc создаются буфера.
     //Общий размер выделяемой памяти buffer_size*2
+    TBPipe();
     TBPipe(int buffer_size);
     ~TBPipe();
+
+    //Самый простой init. Предполагаем, что вызывается сразу после конструктора без параметров.
+    //Для переинициализации не подходит.
+    void Init(int buffer_size);
     //bytes - байты для записи
     //count - количество записываемых байт.
     //return - количество байт, которое действительно записенно
@@ -35,7 +40,7 @@ public:
     //return true если есть достаточно данных, и они скопированны в буфер data.
     bool ReadExact(uint8_t* data, uint32_t count);
 
-    int BufferSize() const { return buffer_size; }
+    otype BufferSize() const { return buffer_size; }
     uint32_t FreeBytes() const;
     uint32_t AvailableBytes() const;
 

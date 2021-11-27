@@ -21,6 +21,18 @@ TBPipe::~TBPipe()
     free(buffer);
 }
 
+TBPipe::TBPipe()
+    : buffer(nullptr)
+    , buffer_size(1234)
+{
+}
+
+void TBPipe::Init(int buffer_size)
+{
+    this->buffer_size = buffer_size;
+    buffer = (uint8_t*)malloc(buffer_size);
+}
+
 TBPipe::otype TBPipe::FreeBytesInternal(TBPipe::otype read_pos, TBPipe::otype write_pos) const
 {
     if (write_pos < read_pos)
@@ -166,12 +178,14 @@ bool TBPipe::ReadExact(uint8_t* data, uint32_t count)
 
     if(count > 0) //write_pos >= read_pos
     {
+        /*
         otype size = write_pos - read_pos;
         if(count > size)
         {
-            //assert(0);
-            int k=0;
+            //Подумать, что делать в этом случае
+            assert(0);
         }
+        */
 
         memcpy(data, buffer + read_pos, count);
         read_pos += count;

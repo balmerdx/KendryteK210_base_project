@@ -47,3 +47,5 @@ void stm32p_uart_send(const uint8_t *buffer, uint32_t buf_len);
 void set_stm32_boot_pin(bool v);
 
 void stm32p_test_loop();
+
+bool stm32p_bootloader_activated();

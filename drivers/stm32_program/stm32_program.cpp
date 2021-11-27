@@ -474,3 +474,8 @@ void stm32p_test_loop()
         print_received(10);
     }
 }
+
+bool stm32p_bootloader_activated()
+{
+    return bootloader_activated;
+}

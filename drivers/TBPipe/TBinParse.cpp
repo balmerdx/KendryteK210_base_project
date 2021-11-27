@@ -64,7 +64,9 @@ MessageHeaderPassed:
     } else
     if(buffer_amount - buffer_pos >= 8)
     {
-        if(ParseHeader(*(uint64_t*)(buffer + buffer_pos)))
+        uint64_t head; //Тут падало, т.к. buffer_pos misaligned offset
+        memcpy(&head, buffer + buffer_pos, 8);
+        if(ParseHeader(head))
         {
             buffer_pos += 8;
             if(bin_message_size+8 > buffer_size)
