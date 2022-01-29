@@ -24,5 +24,7 @@
         "iosfwd": "cpp",
         "string": "cpp"
     }
-    ,"git.enabled": false
+    ,
+    "git.enabled": false,
+    "idf.adapterTargetName": "esp32"
 }
